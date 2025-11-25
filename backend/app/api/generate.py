@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from typing import Dict, Any
 from datetime import datetime
 import logging
+import json
 
 from app.exceptions import (
     AIServiceError,
