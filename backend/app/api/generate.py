@@ -693,7 +693,50 @@ async def generate_product_description(
             user_id=user_id
         )
         
+        # Handle dict output - extract all text content and flatten nested structures
+        def flatten_to_text(value, bullet_items=False):
+            """Recursively flatten any data structure to readable text"""
+            if isinstance(value, str):
+                return value
+            elif isinstance(value, (int, float, bool)):
+                return str(value)
+            elif isinstance(value, list):
+                if bullet_items:
+                    return '\n'.join([f"• {flatten_to_text(item)}" for item in value if item])
+                else:
+                    return '\n'.join([flatten_to_text(item) for item in value if item])
+            elif isinstance(value, dict):
+                return '\n'.join([flatten_to_text(v) for v in value.values() if v])
+            else:
+                return str(value)
+        
         product_output = ai_result['output']
+        
+        if isinstance(product_output, dict):
+            # Extract product content from dict
+            product_content = ''
+            product_title = product_output.get('title', request.product_name)
+            
+            # Try to get description from various possible keys
+            for key in ['description', 'content', 'text', 'body']:
+                if key in product_output and product_output[key]:
+                    product_content = flatten_to_text(product_output[key])
+                    break
+            
+            # If no content found, combine all text values
+            if not product_content:
+                content_parts = []
+                for key, value in product_output.items():
+                    if key != 'title' and value:
+                        use_bullets = 'feature' in key.lower() or 'benefit' in key.lower()
+                        content_parts.append(flatten_to_text(value, bullet_items=use_bullets))
+                product_content = '\n\n'.join(content_parts) if content_parts else json.dumps(product_output, indent=2)
+            
+            output_dict = product_output
+        else:
+            product_content = str(product_output)
+            product_title = request.product_name
+            output_dict = {'description': product_content, 'title': product_title}
         
         quality_metrics = {
             'readabilityScore': 8.8,
@@ -716,7 +759,7 @@ async def generate_product_description(
                 'tone': request.tone,
                 'includeSeo': request.include_seo
             },
-            'output': product_output,
+            'output': json.dumps(output_dict, indent=2) if isinstance(output_dict, dict) else output_dict,
             'settings': {
                 'tone': request.tone,
                 'platform': request.platform or "general"
@@ -741,8 +784,8 @@ async def generate_product_description(
             id=generation_id,
             user_id=user_id,
             content_type=ContentType.PRODUCT_DESCRIPTION,
-            content=generation_data['output'].get('description', ''),
-            title=generation_data['output'].get('title', ''),
+            content=product_content,
+            title=product_title,
             settings=generation_data['settings'],
             quality_metrics=quality_metrics,
             fact_check_results=generation_data['factCheckResults'],
@@ -817,7 +860,50 @@ async def generate_ad_copy(
             user_id=user_id
         )
         
+        # Handle dict output - extract all text content and flatten nested structures
+        def flatten_to_text(value, bullet_items=False):
+            """Recursively flatten any data structure to readable text"""
+            if isinstance(value, str):
+                return value
+            elif isinstance(value, (int, float, bool)):
+                return str(value)
+            elif isinstance(value, list):
+                if bullet_items:
+                    return '\n'.join([f"• {flatten_to_text(item)}" for item in value if item])
+                else:
+                    return '\n'.join([flatten_to_text(item) for item in value if item])
+            elif isinstance(value, dict):
+                return '\n'.join([flatten_to_text(v) for v in value.values() if v])
+            else:
+                return str(value)
+        
         ad_output = ai_result['output']
+        
+        if isinstance(ad_output, dict):
+            # Extract ad content from dict
+            ad_content = ''
+            ad_title = ad_output.get('headline', request.product_service)
+            
+            # Try to get body/content from various possible keys
+            for key in ['body', 'content', 'text', 'description']:
+                if key in ad_output and ad_output[key]:
+                    ad_content = flatten_to_text(ad_output[key])
+                    break
+            
+            # If no content found, combine all text values except headline
+            if not ad_content:
+                content_parts = []
+                for key, value in ad_output.items():
+                    if key not in ['headline', 'title'] and value:
+                        use_bullets = 'feature' in key.lower() or 'benefit' in key.lower() or 'point' in key.lower()
+                        content_parts.append(flatten_to_text(value, bullet_items=use_bullets))
+                ad_content = '\n\n'.join(content_parts) if content_parts else json.dumps(ad_output, indent=2)
+            
+            output_dict = ad_output
+        else:
+            ad_content = str(ad_output)
+            ad_title = request.product_service
+            output_dict = {'body': ad_content, 'headline': ad_title}
         
         quality_metrics = {
             'readabilityScore': 9.0,
@@ -839,7 +925,7 @@ async def generate_ad_copy(
                 'campaignGoal': request.campaign_goal,
                 'tone': request.tone
             },
-            'output': ad_output,
+            'output': json.dumps(output_dict, indent=2) if isinstance(output_dict, dict) else output_dict,
             'settings': {
                 'tone': request.tone,
                 'platform': request.platform
@@ -864,8 +950,8 @@ async def generate_ad_copy(
             id=generation_id,
             user_id=user_id,
             content_type=ContentType.AD_COPY,
-            content=generation_data['output'].get('body', ''),
-            title=generation_data['output'].get('headline', ''),
+            content=ad_content,
+            title=ad_title,
             settings=generation_data['settings'],
             quality_metrics=quality_metrics,
             fact_check_results=generation_data['factCheckResults'],
