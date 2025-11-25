@@ -105,6 +105,23 @@
     },
     {
       "name": "User login",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "// Auto-save tokens to collection variables",
+              "if (pm.response.code === 200) {",
+              "    const response = pm.response.json();",
+              "    pm.collectionVariables.set('access_token', response.access_token);",
+              "    pm.collectionVariables.set('refresh_token', response.refresh_token);",
+              "    console.log('✅ Tokens saved to collection variables');",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
       "request": {
         "method": "POST",
         "header": [
@@ -125,7 +142,7 @@
             "login"
           ]
         },
-        "description": "Authenticate user with email and password, return JWT tokens.\n    \n    **Authentication Flow:**\n    1. Validates email format and password\n    2. Looks up user in Firestore\n    3. Verifies password using bcrypt\n    4. Generates JWT access token (24 hours)\n    5. Generates JWT refresh token (30 days)\n    6. Returns tokens + complete user profile\n    \n    **Token Usage:**\n    - Include access token in Authorization header: `Bearer <token>`\n    - Use refresh token to get new access token when expired\n    - Both tokens are JWTs signed with HS256\n    \n    **Returns:**\n    - access_token: Use for API requests (expires in 24 hours)\n    - refresh_token: Use to get new access token (expires in 30 days)\n    - user: Complete user profile with current stats"
+        "description": "Authenticate user with email and password, return JWT tokens.\n    \n    **Authentication Flow:**\n    1. Validates email format and password\n    2. Looks up user in Firestore\n    3. Verifies password using bcrypt\n    4. Generates JWT access token (24 hours)\n    5. Generates JWT refresh token (30 days)\n    6. Returns tokens + complete user profile\n    \n    **Token Usage:**\n    - Include access token in Authorization header: `Bearer <token>`\n    - Use refresh token to get new access token when expired\n    - Both tokens are JWTs signed with HS256\n    \n    **Returns:**\n    - access_token: Use for API requests (expires in 24 hours)\n    - refresh_token: Use to get new access token (expires in 30 days)\n    - user: Complete user profile with current stats\n    \n    **Auto-Save:** Tokens are automatically saved to collection variables after successful login"
       }
     },
     {
