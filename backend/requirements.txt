@@ -1,0 +1,55 @@
+# Web Framework
+fastapi==0.115.0
+uvicorn[standard]==0.32.1
+pydantic==2.10.3
+pydantic-settings==2.6.1
+
+# Firebase
+firebase-admin==6.2.0
+
+# OpenAI & LLMs
+# PRIMARY: Google Gemini 2.0 Flash (see backend/AI_MODELS_CONFIG.md)
+google-generativeai==0.8.3  # Updated for Gemini 2.0 Flash + caching support
+openai==1.54.5  # FALLBACK: GPT-4o-mini
+anthropic==0.7.0  # Future use
+replicate==0.34.1  # For Flux Schnell image generation
+
+# Fact-Checking APIs
+requests==2.31.0
+httpx==0.25.1
+
+# Payments
+stripe==7.4.0
+
+# Auth
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+PyJWT==2.10.1
+
+# Caching & Cost Optimization
+redis==5.2.1  # For result caching + Gemini prompt caching support
+
+# Environment
+python-dotenv==1.0.0
+
+# Logging & Monitoring
+structlog==23.2.0
+python-json-logger==2.0.7
+
+# Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+
+# Development
+black==23.12.0
+flake8==6.1.0
+mypy==1.7.1
+isort==5.13.2
+
+# Utilities
+python-multipart==0.0.6
+email-validator==2.1.0
+
+# API Client
+aiohttp==3.9.1

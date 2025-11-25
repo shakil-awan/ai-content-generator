@@ -1,0 +1,1077 @@
+{
+  "info": {
+    "name": "Summarly API",
+    "description": "AI Content Generator API - Complete collection with all endpoints",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "summarly-api-v1",
+    "version": "1.0.0"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{access_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refresh_token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Root",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            ""
+          ]
+        },
+        "description": "Root endpoint - API health check"
+      }
+    },
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/health",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "health"
+          ]
+        },
+        "description": "Detailed health check endpoint"
+      }
+    },
+    {
+      "name": "Register new user",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/auth/register",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "auth",
+            "register"
+          ]
+        },
+        "description": "Create a new user account with complete profile initialization.\n    \n    **What happens on registration:**\n    1. Validates email and password strength\n    2. Creates Firebase Auth user\n    3. Creates Firestore user document with:\n       - Free plan subscription\n       - Usage limits (5 generations, 3 humanizations, 5 graphics)\n       - All stats initialized to 0 (NOT mock data)\n       - Default settings (English, light theme)\n       - Onboarding at step 0\n    \n    **Real Stats Initialization:**\n    - totalGenerations: 0 \u2192 Increments on each content generation\n    - totalHumanizations: 0 \u2192 Increments on AI humanization\n    - totalGraphics: 0 \u2192 Increments on social graphic creation\n    - averageQualityScore: 0.0 \u2192 Calculated from generation scores\n    - favoriteCount: 0 \u2192 Increments when user favorites content\n    \n    **Returns:** Complete user profile with initialized data"
+      }
+    },
+    {
+      "name": "User login",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/auth/login",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "auth",
+            "login"
+          ]
+        },
+        "description": "Authenticate user with email and password, return JWT tokens.\n    \n    **Authentication Flow:**\n    1. Validates email format and password\n    2. Looks up user in Firestore\n    3. Verifies password using bcrypt\n    4. Generates JWT access token (24 hours)\n    5. Generates JWT refresh token (30 days)\n    6. Returns tokens + complete user profile\n    \n    **Token Usage:**\n    - Include access token in Authorization header: `Bearer <token>`\n    - Use refresh token to get new access token when expired\n    - Both tokens are JWTs signed with HS256\n    \n    **Returns:**\n    - access_token: Use for API requests (expires in 24 hours)\n    - refresh_token: Use to get new access token (expires in 30 days)\n    - user: Complete user profile with current stats"
+      }
+    },
+    {
+      "name": "Refresh access token",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/auth/refresh",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "auth",
+            "refresh"
+          ]
+        },
+        "description": "Get new access token using refresh token.\n    \n    **When to use:**\n    - Access token expired (401 error)\n    - Proactive refresh before expiration\n    - User returns to app after inactivity\n    \n    **How it works:**\n    1. Validates refresh token signature\n    2. Checks token hasn't expired (30 days)\n    3. Verifies token type is \"refresh\"\n    4. Generates new access token (24 hours)\n    5. Returns new access token\n    \n    **Security:**\n    - Refresh tokens are long-lived (30 days)\n    - Access tokens are short-lived (24 hours)\n    - If refresh token expires, user must login again"
+      }
+    },
+    {
+      "name": "User logout",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/auth/logout",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "auth",
+            "logout"
+          ]
+        },
+        "description": "Logout user (client-side token deletion).\n    \n    **Note:** JWTs are stateless, so server-side logout is optional.\n    Client should delete tokens from local storage.\n    \n    **Optional Enhancement (Future):**\n    - Store token blacklist in Redis\n    - Check blacklist in token verification\n    - Add tokens to blacklist on logout"
+      }
+    },
+    {
+      "name": "Google OAuth login/signup",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/auth/google",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "auth",
+            "google"
+          ]
+        },
+        "description": "Authenticate using Google Sign-In.\n    \n    **Flow:**\n    1. Frontend gets Google ID token from Firebase Auth\n    2. Send ID token to this endpoint\n    3. Backend verifies token with Firebase\n    4. Creates new user if first time, or logs in existing user\n    5. Returns JWT access and refresh tokens\n    \n    **User Creation:**\n    - If user doesn't exist by email, creates new account\n    - Initializes with Free plan and all stats at 0\n    - Uses Google profile data (name, photo)\n    \n    **Returns:** JWT tokens for API authentication"
+      }
+    },
+    {
+      "name": "Get current user profile",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/users/profile",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users",
+            "profile"
+          ]
+        },
+        "description": "Retrieve complete user profile with REAL calculated statistics.\n    \n    **Authentication Required:** Bearer token in Authorization header\n    \n    **What You Get:**\n    - Basic info: uid, email, display name, profile image\n    - Subscription: Current plan, status, billing period\n    - Usage stats: Real-time generation/humanization/graphics counts\n    - Brand voice: Configuration status and settings\n    - Settings: Theme, preferences (language auto-detected by AI)\n    - Team: Role and invited members\n    - Onboarding: Progress through setup steps\n    - All-time stats: Total generations, average quality score, favorites\n    \n    **Real Data Guarantee:**\n    - ALL stats are calculated from actual user actions\n    - New users see 0 for all counters\n    - Stats increment automatically on actions\n    - NO mock or hardcoded values\n    \n    **Example Usage:**\n    ```\n    Authorization: Bearer eyJhbGciOiJIUzI1NiIs...\n    GET /api/v1/user/profile\n    ```"
+      }
+    },
+    {
+      "name": "Update user profile",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/users/profile",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users",
+            "profile"
+          ]
+        },
+        "description": "Update user profile information (display name and profile image).\n    \n    **Authentication Required:** Bearer token\n    \n    **Updatable Fields:**\n    - display_name: User's display name (2-50 characters)\n    - profile_image: URL to profile image\n    \n    **What Can't Be Updated Here:**\n    - Email (requires re-authentication)\n    - Password (use password reset flow)\n    - Subscription (use billing endpoints)\n    - Stats (auto-calculated from actions)\n    \n    **Example:**\n    ```json\n    {\n      \"display_name\": \"John Smith\",\n      \"profile_image\": \"https://example.com/avatar.jpg\"\n    }\n    ```"
+      }
+    },
+    {
+      "name": "Update user settings",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/users/settings",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users",
+            "settings"
+          ]
+        },
+        "description": "Update user preferences and settings.\n    \n    **Authentication Required:** Bearer token\n    \n    **Updatable Settings:**\n    - default_content_type: Preferred content type for quick generation\n    - default_tone: Preferred tone (professional, casual, friendly, etc.)\n    - primary_use_case: Main use case (blog_writer, marketing_team, etc.)\n    - auto_fact_check: Enable/disable automatic fact-checking\n    - email_notifications: Enable/disable email notifications\n    - theme: UI theme (light or dark)\n    \n    **Note:** Language is auto-detected by AI models (OpenAI/Gemini) based on user input.\n    \n    **Example:**\n    ```json\n    {\n      \"primary_use_case\": \"marketing_team\",\n      \"auto_fact_check\": true,\n      \"theme\": \"dark\"\n    }\n    ```"
+      }
+    },
+    {
+      "name": "Get detailed usage statistics",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/users/usage",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users",
+            "usage"
+          ]
+        },
+        "description": "Get detailed usage statistics for current billing period.\n    \n    **Authentication Required:** Bearer token\n    \n    **Statistics Included:**\n    - Generations: Count and limit based on plan\n    - Humanizations: Count and limit (Free: 3, Hobby: 25, Pro: unlimited)\n    - Social Graphics: Count and limit (Free: 5, Hobby: 50, Pro: unlimited)\n    - Percentage used: Overall usage percentage\n    - Reset date: When monthly limits reset\n    \n    **Real-Time Data:**\n    - All counts are REAL and incremented on actions\n    - Limits change automatically when subscription upgraded\n    - Percentage calculated dynamically\n    - New users start with 0 usage\n    \n    **Example Response:**\n    ```json\n    {\n      \"generations\": 45,\n      \"generations_limit\": 100,\n      \"humanizations\": 10,\n      \"humanizations_limit\": 25,\n      \"social_graphics\": 20,\n      \"social_graphics_limit\": 50,\n      \"reset_date\": \"2025-02-01T00:00:00Z\",\n      \"percentage_used\": 45.0\n    }\n    ```"
+      }
+    },
+    {
+      "name": "Request account deletion",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/users/account/delete",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users",
+            "account",
+            "delete"
+          ]
+        },
+        "description": "Schedule account deletion 1 day before subscription ends.\n    \n    **Process:**\n    1. User confirms deletion in frontend dialog (no password needed)\n    2. Cancels active subscription (if any)\n    3. Schedules deletion for 1 day before subscription end\n    4. Marks account as pending deletion\n    5. Returns scheduled deletion date\n    \n    **What Gets Deleted:**\n    - User profile and settings\n    - Generated content history\n    - Brand voice configurations\n    - Files in Firebase Storage (images, videos)\n    - Firestore user data\n    \n    **What's Preserved:**\n    - Payment records (for legal/tax compliance)\n    - Billing history\n    - Subscription transaction logs\n    \n    **Cancellation:**\n    - Can cancel deletion before scheduled date\n    - Use POST /account/delete/cancel endpoint\n    \n    **Nightly Processing:**\n    - Firebase Cloud Function runs at 2 AM UTC daily\n    - Checks for accounts scheduled for deletion\n    - Processes deletions if date has passed"
+      }
+    },
+    {
+      "name": "Cancel scheduled account deletion",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/users/account/delete/cancel",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "users",
+            "account",
+            "delete",
+            "cancel"
+          ]
+        },
+        "description": "Cancel a previously scheduled account deletion.\n    \n    **Requirements:**\n    - Account must be marked for deletion\n    - Deletion date must not have passed\n    - User must be authenticated (no password needed)\n    \n    **Effects:**\n    - Removes deletion scheduling\n    - Reactivates account status\n    - User can continue using the service"
+      }
+    },
+    {
+      "name": "Generate AI blog post",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/generate/blog",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "generate",
+            "blog"
+          ]
+        },
+        "description": "Generate SEO-optimized blog post with automatic stats tracking.\n    \n    **Stats Auto-Increment:**\n    - usageThisMonth.generations++ (tracks monthly usage)\n    - allTimeStats.totalGenerations++ (lifetime counter)\n    - allTimeStats.averageQualityScore (recalculated from all generations)\n    \n    **Rate Limiting:**\n    - Free: 10 generations/month\n    - Pro: 100 generations/month\n    - Enterprise: Unlimited\n    \n    **Required Fields:**\n    - topic: What the blog post is about (3-200 chars)\n    - keywords: 1-10 SEO keywords to naturally include\n    - tone: Content tone (professional, casual, friendly, etc)\n    - length: short (~500), medium (~1000), long (~2000+ words)\n    \n    **Returns:**\n    - Complete blog post with title, content, meta description\n    - Word count and SEO metadata\n    - Generation ID for future reference (humanization, etc)\n    - REAL quality metrics (not mock data)"
+      }
+    },
+    {
+      "name": "Generate social media content",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/generate/social",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "generate",
+            "social"
+          ]
+        },
+        "description": "Generate platform-optimized social media posts with hashtags and engagement tips"
+      }
+    },
+    {
+      "name": "Generate email campaign",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/generate/email",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "generate",
+            "email"
+          ]
+        },
+        "description": "Generate complete email campaigns with subject lines, body, and CTA"
+      }
+    },
+    {
+      "name": "Generate product description",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/generate/product",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "generate",
+            "product"
+          ]
+        },
+        "description": "Generate SEO-optimized e-commerce product descriptions"
+      }
+    },
+    {
+      "name": "Generate ad copy",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/generate/ad",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "generate",
+            "ad"
+          ]
+        },
+        "description": "Generate high-converting advertisement copy with multiple variations"
+      }
+    },
+    {
+      "name": "Generate video script",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/generate/video-script",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "generate",
+            "video-script"
+          ]
+        },
+        "description": "Generate platform-optimized video scripts with hooks, timestamps, and visual cues"
+      }
+    },
+    {
+      "name": "Check generation service health",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/generate/health",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "generate",
+            "health"
+          ]
+        },
+        "description": "Verify AI services (OpenAI/Gemini) are accessible"
+      }
+    },
+    {
+      "name": "Humanize AI-generated content",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/humanize/{generation_id}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "humanize",
+            "{generation_id}"
+          ]
+        },
+        "description": "Detect and humanize AI-generated content to make it sound more natural.\n    \n    **Stats Auto-Increment:**\n    - usageThisMonth.humanizations++ (tracks monthly usage)\n    - allTimeStats.totalHumanizations++ (lifetime counter)\n    \n    **Rate Limiting:**\n    - Free: 5 humanizations/month\n    - Pro: 25 humanizations/month\n    - Enterprise: Unlimited\n    \n    **Humanization Levels:**\n    - light: Minimal changes, subtle improvements\n    - balanced: Moderate rewrite, natural flow (recommended)\n    - aggressive: Heavy rewrite, maximum human-like quality\n    \n    **Process:**\n    1. Retrieve original generation from database\n    2. Detect AI score (0-100, higher = more AI-like)\n    3. Rewrite content to be more human-like\n    4. Re-detect AI score to measure improvement\n    5. Update generation with humanized version\n    6. Increment usage stats\n    7. Return before/after comparison\n    \n    **Returns:**\n    - Original and humanized content\n    - AI detection scores before/after\n    - Improvement percentage\n    - Processing time and cost estimate"
+      }
+    },
+    {
+      "name": "Detect AI content score",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/humanize/detect/{generation_id}",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "humanize",
+            "detect",
+            "{generation_id}"
+          ]
+        },
+        "description": "Check how AI-generated content appears without humanizing it"
+      }
+    },
+    {
+      "name": "Check humanization service health",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/humanize/health",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "humanize",
+            "health"
+          ]
+        },
+        "description": "Check if humanization service is operational"
+      }
+    },
+    {
+      "name": "Create Stripe checkout session",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/billing/checkout",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "billing",
+            "checkout"
+          ]
+        },
+        "description": "Create a Stripe Checkout session to upgrade subscription.\n    \n    **Available Tiers:**\n    - Pro: $29/month or $290/year (save $58 - 2 months free!)\n    - Enterprise: $99/month or $990/year (save $198 - 2 months free!)\n    \n    **Billing Options:**\n    - Monthly: Pay month-to-month, cancel anytime\n    - Annual: Pay yearly, get 17% discount (2 months free)\n    \n    **Flow:**\n    1. User selects tier (pro/enterprise) and interval (month/year)\n    2. Create Stripe checkout session with selected pricing\n    3. Redirect user to Stripe payment page\n    4. After payment, webhook updates user subscription\n    5. Limits auto-update based on tier (same limits for monthly/yearly)\n    \n    **Returns:**\n    - Checkout session URL (redirect user here)\n    - Session ID (for tracking)"
+      }
+    },
+    {
+      "name": "Change subscription plan or billing interval",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/billing/subscription/change",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "billing",
+            "subscription",
+            "change"
+          ]
+        },
+        "description": "Switch between monthly and annual billing, or change tier (Pro \u2194 Enterprise).\n    Stripe automatically handles proration.\n    \n    **Examples:**\n    - Pro Monthly \u2192 Pro Annual: Get charged for annual with credit for remaining monthly time\n    - Pro Annual \u2192 Pro Monthly: Get credit, start monthly billing\n    - Pro \u2192 Enterprise: Upgrade with proration\n    - Enterprise \u2192 Pro: Downgrade with credit\n    \n    **Proration:**\n    - If upgrading (annual or higher tier): Charge difference immediately\n    - If downgrading: Credit applied to future invoices\n    - Stripe calculates fair proration based on time remaining\n    \n    **Response includes:**\n    - Proration amount (positive = charged, negative = credited)\n    - Next billing date\n    - New plan details"
+      }
+    },
+    {
+      "name": "Handle Stripe webhook events",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/billing/webhook",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "billing",
+            "webhook"
+          ]
+        },
+        "description": "Receive and process Stripe webhook events.\n    \n    **Handled Events:**\n    - checkout.session.completed: New subscription \u2192 Update user tier + limits\n    - customer.subscription.updated: Plan change \u2192 Update limits\n    - customer.subscription.deleted: Cancellation \u2192 Downgrade to Free\n    - invoice.payment_succeeded: Successful payment\n    - invoice.payment_failed: Failed payment\n    \n    **Auto Limit Updates:**\n    ```python\n    Free \u2192 Pro:\n        generations: 5 \u2192 100\n        humanizations: 3 \u2192 25\n        graphics: 5 \u2192 50\n    \n    Pro \u2192 Enterprise:\n        generations: 100 \u2192 999999 (unlimited)\n        humanizations: 25 \u2192 999999\n        graphics: 50 \u2192 999999\n    ```"
+      }
+    },
+    {
+      "name": "Get current subscription details",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/billing/subscription",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "billing",
+            "subscription"
+          ]
+        },
+        "description": "Get user's current subscription details"
+      }
+    },
+    {
+      "name": "Cancel subscription",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/billing/cancel",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "billing",
+            "cancel"
+          ]
+        },
+        "description": "Cancel user's subscription (at end of billing period)"
+      }
+    },
+    {
+      "name": "List payment invoices",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/billing/invoices",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "billing",
+            "invoices"
+          ]
+        },
+        "description": "List user's payment invoices"
+      }
+    },
+    {
+      "name": "Get customer portal URL",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/billing/portal",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "billing",
+            "portal"
+          ]
+        },
+        "description": "Get Stripe customer portal URL for self-service management\n\nPortal allows users to:\n- Update payment method\n- View invoices\n- Cancel subscription"
+      }
+    },
+    {
+      "name": "Check billing service health",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/billing/health",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "billing",
+            "health"
+          ]
+        },
+        "description": "Check if Stripe billing service is operational"
+      }
+    },
+    {
+      "name": "Generate AI image",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/generate/image",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "generate",
+            "image"
+          ]
+        },
+        "description": "Generate high-quality images using Flux Schnell (fast, cheap) or DALL-E 3 (Enterprise only).\n    \n    **Pricing:**\n    - Flux Schnell: $0.003/image (all tiers) - 2-3 seconds\n    - DALL-E 3: $0.040/image (Enterprise only) - HD quality\n    \n    **Features:**\n    - Automatic prompt enhancement for better quality\n    - Multiple aspect ratios and styles\n    - Fast generation (2-5 seconds)\n    - Smart model routing based on subscription tier\n    \n    **Supported Sizes:**\n    - 1024x1024 (square)\n    - 1024x1792 (portrait)\n    - 1792x1024 (landscape)\n    \n    **Styles:**\n    - realistic: Photorealistic images\n    - artistic: Painterly, expressive\n    - illustration: Clean vector art style\n    - 3d: 3D rendered look"
+      }
+    },
+    {
+      "name": "Generate multiple images",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/generate/image/batch",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "generate",
+            "image",
+            "batch"
+          ]
+        },
+        "description": "Generate multiple images in parallel for efficiency.\n    \n    **Limits:**\n    - 1-10 images per request\n    - Same size/style applied to all\n    - Uses available quota\n    \n    **Use Cases:**\n    - Generate variations of same prompt\n    - Create multiple assets at once\n    - Batch product image generation"
+      }
+    },
+    {
+      "name": "Get available image generation models",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/api/v1/generate/image/models",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "generate",
+            "image",
+            "models"
+          ]
+        },
+        "description": "Returns list of available models with pricing and capabilities"
+      }
+    },
+    {
+      "name": "Get Cache Stats",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/analytics/cache/stats",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "analytics",
+            "cache",
+            "stats"
+          ]
+        },
+        "description": "Get Redis cache statistics\n\nReturns cache health, hit rate, memory usage"
+      }
+    },
+    {
+      "name": "Get Cost Summary",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/analytics/cost/summary",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "analytics",
+            "cost",
+            "summary"
+          ]
+        },
+        "description": "Get cost summary for specified period\n\nArgs:\n    days: Number of days to analyze (default 30)\n\nReturns:\n    Cost breakdown by model, content type, user tier"
+      }
+    },
+    {
+      "name": "Get Usage Breakdown",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/analytics/usage/breakdown",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "analytics",
+            "usage",
+            "breakdown"
+          ]
+        },
+        "description": "Get detailed usage breakdown\n\nArgs:\n    days: Number of days to analyze\n\nReturns:\n    Usage by content type, hour of day, day of week"
+      }
+    },
+    {
+      "name": "Track Generation Cost",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/analytics/cost/track",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "analytics",
+            "cost",
+            "track"
+          ]
+        },
+        "description": "Track a generation's cost (called internally by services)\n\nArgs:\n    generation_data: Generation metadata (model, tokens, content_type, etc.)\n\nReturns:\n    Confirmation with cost calculation"
+      }
+    },
+    {
+      "name": "Submit Feedback",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/feedback/submit",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "feedback",
+            "submit"
+          ]
+        },
+        "description": "Submit user feedback on generated content\n\nThis feedback helps improve AI model selection and quality thresholds"
+      }
+    },
+    {
+      "name": "Get Feedback Stats",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/feedback/stats",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "feedback",
+            "stats"
+          ]
+        },
+        "description": "Get feedback statistics\n\nAdmin users see all stats, regular users see only their own"
+      }
+    },
+    {
+      "name": "Request Regeneration",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/feedback/request-regeneration",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "feedback",
+            "request-regeneration"
+          ]
+        },
+        "description": "Request content regeneration with improvements\n\nStores regeneration request for tracking improvement needs"
+      }
+    },
+    {
+      "name": "Get Improvement Insights",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/feedback/improvement-insights",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "feedback",
+            "improvement-insights"
+          ]
+        },
+        "description": "Get insights on what needs improvement based on user feedback\n\nAdmin only - helps identify quality issues"
+      }
+    }
+  ]
+}

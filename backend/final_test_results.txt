@@ -1,0 +1,117 @@
+
+[1m================================================================================[0m
+[1mCOMPREHENSIVE API TESTING - MILESTONE BY MILESTONE[0m
+[1m================================================================================[0m
+Server: http://localhost:8000
+Test Email: test@example.com
+Started: 2025-11-25 15:48:46
+[1m================================================================================[0m
+
+
+[94m================================================================================[0m
+[94m[1mMILESTONE 1.1 & 1.2: AUTHENTICATION[0m
+[94m================================================================================[0m
+
+[92m✓[0m [15:48:46] [1mM1.1[0m - Health Check: [92mPASSED[0m
+  └─ Server is healthy: Summarly API
+
+[92m✓[0m [15:48:51] [1mM1.1[0m - User Registration: [92mPASSED[0m
+  └─ User registered: test@example.com
+
+[91m✗[0m [15:48:52] [1mM1.1[0m - Duplicate Email Prevention: [91mFAILED[0m
+  └─ [91mShould return 400 for duplicate email[0m
+
+[92m✓[0m [15:48:53] [1mM1.2[0m - Login Success: [92mPASSED[0m
+  └─ Login successful
+
+[91m✗[0m [15:48:53] [1mM1.2[0m - Wrong Email Detection: [91mFAILED[0m
+  └─ [91mShould return 401 with email_not_found[0m
+
+[91m✗[0m [15:48:54] [1mM1.2[0m - Wrong Password Detection: [91mFAILED[0m
+  └─ [91mShould return 401 with incorrect_password[0m
+
+[92m✓[0m [15:48:55] [1mM1.2[0m - Token Refresh: [92mPASSED[0m
+  └─ Token refreshed successfully
+
+
+[94m================================================================================[0m
+[94m[1mMILESTONE 1.3: USER PROFILE MANAGEMENT[0m
+[94m================================================================================[0m
+
+[92m✓[0m [15:48:56] [1mM1.3[0m - Get User Profile: [92mPASSED[0m
+  └─ Profile retrieved for test@example.com
+
+[93m⚠[0m [15:48:56] [1mM1.3[0m - Update Profile: [93mWARNING[0m
+  └─ Update succeeded but name not changed
+
+[91m✗[0m [15:48:56] [1mM1.3[0m - Auth Required Check: [91mFAILED[0m
+  └─ [91mShould return 401/403 without auth token, got No response[0m
+
+
+[94m================================================================================[0m
+[94m[1mMILESTONE 2: CONTENT GENERATION[0m
+[94m================================================================================[0m
+
+[92m✓[0m [15:49:14] [1mM2.1[0m - Blog Generation: [92mPASSED[0m
+  └─ Blog generated: PI3txgeGrvKfYuiUdsSD
+
+[91m✗[0m [15:49:14] [1mM2.2[0m - Social Media Generation: [91mFAILED[0m
+  └─ [91mStatus: No response[0m
+
+[91m✗[0m [15:49:14] [1mM2.1[0m - Validation Error Handling: [91mFAILED[0m
+  └─ [91mShould return 422 for validation errors, got No response[0m
+
+
+[94m================================================================================[0m
+[94m[1mMILESTONE 2.3: AI HUMANIZATION[0m
+[94m================================================================================[0m
+
+[91m✗[0m [15:49:14] [1mM2.3[0m - Content Humanization: [91mFAILED[0m
+  └─ [91mStatus: No response[0m
+
+[91m✗[0m [15:49:14] [1mM2.3[0m - Invalid Generation ID: [91mFAILED[0m
+  └─ [91mShould return 404 for non-existent generation[0m
+
+
+[94m================================================================================[0m
+[94m[1mUSAGE LIMIT TESTING[0m
+[94m================================================================================[0m
+
+[92m✓[0m [15:49:24] [1mUsage[0m - Generation 3/5: [92mPASSED[0m
+  └─ Generation successful
+
+[92m✓[0m [15:49:27] [1mUsage[0m - Generation 4/5: [92mPASSED[0m
+  └─ Generation successful
+
+[92m✓[0m [15:49:31] [1mUsage[0m - Generation 5/5: [92mPASSED[0m
+  └─ Generation successful
+
+[91m✗[0m [15:49:35] [1mUsage[0m - Limit Enforcement: [91mFAILED[0m
+  └─ [91mShould return 402 when limit reached[0m
+
+
+[94m================================================================================[0m
+[94m[1mTEST SUMMARY[0m
+[94m================================================================================[0m
+
+[1mTotal Tests:[0m 19
+[92m✓ Passed:[0m 9
+[91m✗ Failed:[0m 9
+[93m⚠ Warnings:[0m 1
+
+[91m[1mFAILED TESTS:[0m
+[91m  ✗ M1.1 - Duplicate Email Prevention: Should return 400 for duplicate email[0m
+[91m  ✗ M1.2 - Wrong Email Detection: Should return 401 with email_not_found[0m
+[91m  ✗ M1.2 - Wrong Password Detection: Should return 401 with incorrect_password[0m
+[91m  ✗ M1.3 - Auth Required Check: Should return 401/403 without auth token, got No response[0m
+[91m  ✗ M2.2 - Social Media Generation: Status: No response[0m
+[91m  ✗ M2.1 - Validation Error Handling: Should return 422 for validation errors, got No response[0m
+[91m  ✗ M2.3 - Content Humanization: Status: No response[0m
+[91m  ✗ M2.3 - Invalid Generation ID: Should return 404 for non-existent generation[0m
+[91m  ✗ Usage - Limit Enforcement: Should return 402 when limit reached[0m
+
+[93m[1mWARNINGS:[0m
+[93m  ⚠ M1.3 - Update Profile: Update succeeded but name not changed[0m
+
+[91m[1m❌ Critical issues found: 47.4% pass rate[0m
+
