@@ -19,10 +19,13 @@ Example Usage:
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timezone
 import firebase_admin
-from firebase_admin import credentials, firestore, auth as firebase_auth
+from firebase_admin import credentials, firestore, auth as firebase_auth, storage
 from app.config import settings
 from app.constants import Collections, SubscriptionPlan, SubscriptionStatus
 import logging
+import httpx
+import uuid
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -573,6 +576,89 @@ class FirebaseService:
             logger.error(f"Error inviting team member for {user_id}: {e}")
             raise
             return None
+    
+    # ==================== FIREBASE STORAGE OPERATIONS ====================
+    
+    async def upload_image_to_storage(
+        self,
+        image_url: str,
+        user_id: str,
+        generation_id: str,
+        file_extension: str = "png"
+    ) -> str:
+        """
+        Download image from temporary URL and upload to Firebase Storage
+        
+        Args:
+            image_url: Temporary image URL (from Replicate/OpenAI)
+            user_id: User ID for organizing storage
+            generation_id: Generation ID for tracking
+            file_extension: File extension (png, jpg, webp)
+        
+        Returns:
+            Permanent Firebase Storage URL
+        """
+        try:
+            # Download image from temporary URL
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.get(image_url)
+                response.raise_for_status()
+                image_data = response.content
+            
+            # Generate storage path: images/{user_id}/{generation_id}.{ext}
+            filename = f"{generation_id}.{file_extension}"
+            storage_path = f"images/{user_id}/{filename}"
+            
+            # Get Firebase Storage bucket
+            bucket = storage.bucket()
+            blob = bucket.blob(storage_path)
+            
+            # Upload image with metadata
+            blob.upload_from_string(
+                image_data,
+                content_type=f"image/{file_extension}"
+            )
+            
+            # Make blob publicly accessible
+            blob.make_public()
+            
+            # Get public URL
+            public_url = blob.public_url
+            
+            logger.info(f"✅ Image uploaded to Firebase Storage: {storage_path}")
+            return public_url
+            
+        except httpx.HTTPError as e:
+            logger.error(f"Failed to download image from {image_url}: {e}")
+            raise
+        except Exception as e:
+            logger.error(f"Failed to upload image to Firebase Storage: {e}")
+            raise
+    
+    async def update_generation_image_url(
+        self,
+        generation_id: str,
+        permanent_url: str
+    ) -> None:
+        """
+        Update generation document with permanent Firebase Storage URL
+        
+        Args:
+            generation_id: Generation document ID
+            permanent_url: Permanent Firebase Storage URL
+        """
+        try:
+            generation_ref = self.db.collection(Collections.GENERATIONS).document(generation_id)
+            generation_ref.update({
+                'imageUrl': permanent_url,
+                'imageStorageStatus': 'uploaded',
+                'imageUploadedAt': firestore.SERVER_TIMESTAMP,
+                'updatedAt': firestore.SERVER_TIMESTAMP
+            })
+            logger.info(f"✅ Updated generation {generation_id} with permanent image URL")
+        except Exception as e:
+            logger.error(f"Failed to update generation {generation_id}: {e}")
+            raise
 
 # Singleton instance
 firebase_service = FirebaseService()

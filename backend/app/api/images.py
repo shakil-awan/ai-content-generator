@@ -9,7 +9,7 @@ COST STRUCTURE:
 ARCHITECTURE FLOW:
     Request → Validate → Generate Image → Save to Firebase Storage → Track Stats → Response
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from typing import Dict, Any, List, Optional
 from pydantic import BaseModel, Field
 from datetime import datetime
@@ -18,6 +18,7 @@ import logging
 from app.dependencies import get_current_user, get_firebase_service
 from app.services.image_service import image_service
 from app.services.firebase_service import FirebaseService
+from app.utils.background_tasks import save_image_to_storage, save_batch_images_to_storage
 
 router = APIRouter(prefix="/api/v1/generate/image", tags=["Image Generation"])
 logger = logging.getLogger(__name__)
@@ -98,6 +99,7 @@ class MultipleImageResponse(BaseModel):
 )
 async def generate_image(
     request: ImageGenerationRequest,
+    background_tasks: BackgroundTasks,
     current_user: Dict[str, Any] = Depends(get_current_user),
     firebase_service: FirebaseService = Depends(get_firebase_service)
 ) -> ImageGenerationResponse:
@@ -108,9 +110,10 @@ async def generate_image(
     1. Check user has graphics quota left
     2. Enhance prompt if requested
     3. Generate image with appropriate model
-    4. Save to Firebase Storage
-    5. Track usage stats
-    6. Return image URL and metadata
+    4. Save generation metadata to Firestore
+    5. Return temporary image URL immediately
+    6. Background: Download & upload to Firebase Storage
+    7. Background: Update generation with permanent URL
     """
     try:
         user_id = current_user['uid']
@@ -153,13 +156,50 @@ async def generate_image(
             aspect_ratio=request.aspect_ratio
         )
         
-        # TODO: Save image to Firebase Storage for permanent storage
-        # For now, Replicate/OpenAI provide temporary URLs
+        # Save generation metadata to Firestore
+        generation_data = {
+            'userId': user_id,
+            'contentType': 'image',
+            'userInput': {
+                'prompt': request.prompt,
+                'enhancedPrompt': final_prompt,
+                'size': request.size,
+                'style': request.style,
+                'aspectRatio': request.aspect_ratio
+            },
+            'output': result['image_url'],  # Temporary URL
+            'imageUrl': result['image_url'],  # Will be updated with permanent URL
+            'imageStorageStatus': 'pending',  # pending → uploaded
+            'metadata': {
+                'model': result['model'],
+                'generationTime': result['generation_time'],
+                'cost': result['cost'],
+                'size': result['size'],
+                'quality': result['quality']
+            },
+            'createdAt': datetime.utcnow(),
+            'updatedAt': datetime.utcnow()
+        }
+        
+        generation_id = await firebase_service.save_generation(generation_data)
+        
+        # Determine file extension from model
+        file_extension = "png"  # Flux uses PNG, DALL-E uses PNG
+        
+        # Schedule background task to save image to permanent storage
+        background_tasks.add_task(
+            save_image_to_storage,
+            image_url=result['image_url'],
+            user_id=user_id,
+            generation_id=generation_id,
+            file_extension=file_extension
+        )
         
         # Increment graphics usage
         # await firebase_service.increment_graphics_usage(user_id)
         
         logger.info(f"✅ Image generated: {result['model']} in {result['generation_time']:.2f}s")
+        logger.info(f"🔄 Background task scheduled to save image for generation {generation_id}")
         
         return ImageGenerationResponse(
             success=True,
@@ -204,6 +244,7 @@ async def generate_image(
 )
 async def generate_multiple_images(
     request: MultipleImageRequest,
+    background_tasks: BackgroundTasks,
     current_user: Dict[str, Any] = Depends(get_current_user),
     firebase_service: FirebaseService = Depends(get_firebase_service)
 ) -> MultipleImageResponse:
@@ -214,9 +255,10 @@ async def generate_multiple_images(
     1. Check user has enough quota
     2. Enhance all prompts if requested
     3. Generate all images in parallel
-    4. Save successful results
-    5. Update usage stats
-    6. Return all image URLs
+    4. Save generation metadata to Firestore
+    5. Return temporary URLs immediately
+    6. Background: Download & upload all to Firebase Storage
+    7. Background: Update generations with permanent URLs
     """
     try:
         user_id = current_user['uid']
@@ -261,6 +303,44 @@ async def generate_multiple_images(
         total_cost = sum(r['cost'] for r in results)
         total_time = max(r['generation_time'] for r in results) if results else 0
         
+        # Save each generation to Firestore and collect IDs
+        generation_ids = []
+        for i, result in enumerate(results):
+            generation_data = {
+                'userId': user_id,
+                'contentType': 'image',
+                'userInput': {
+                    'prompt': request.prompts[i],
+                    'enhancedPrompt': final_prompts[i],
+                    'size': request.size,
+                    'style': request.style,
+                    'batchIndex': i
+                },
+                'output': result['image_url'],
+                'imageUrl': result['image_url'],
+                'imageStorageStatus': 'pending',
+                'metadata': {
+                    'model': result['model'],
+                    'generationTime': result['generation_time'],
+                    'cost': result['cost'],
+                    'size': result['size'],
+                    'quality': result['quality']
+                },
+                'createdAt': datetime.utcnow(),
+                'updatedAt': datetime.utcnow()
+            }
+            generation_id = await firebase_service.save_generation(generation_data)
+            generation_ids.append(generation_id)
+        
+        # Schedule background task to save all images
+        background_tasks.add_task(
+            save_batch_images_to_storage,
+            images=results,
+            user_id=user_id,
+            generation_ids=generation_ids,
+            file_extension="png"
+        )
+        
         # Build response
         images = [
             ImageGenerationResponse(
@@ -280,6 +360,7 @@ async def generate_multiple_images(
         # TODO: Increment graphics usage by len(results)
         
         logger.info(f"✅ Generated {len(results)} images in {total_time:.2f}s (${total_cost:.4f})")
+        logger.info(f"🔄 Background task scheduled to save {len(results)} images")
         
         return MultipleImageResponse(
             success=True,
