@@ -37,6 +37,9 @@
     {
       "name": "Root",
       "request": {
+        "auth": {
+          "type": "noauth"
+        },
         "method": "GET",
         "header": [
           {
@@ -59,6 +62,9 @@
     {
       "name": "Health Check",
       "request": {
+        "auth": {
+          "type": "noauth"
+        },
         "method": "GET",
         "header": [
           {
@@ -81,6 +87,9 @@
     {
       "name": "Register new user",
       "request": {
+        "auth": {
+          "type": "noauth"
+        },
         "method": "POST",
         "header": [
           {
@@ -123,6 +132,9 @@
         }
       ],
       "request": {
+        "auth": {
+          "type": "noauth"
+        },
         "method": "POST",
         "header": [
           {
@@ -198,6 +210,9 @@
     {
       "name": "Google OAuth login/signup",
       "request": {
+        "auth": {
+          "type": "noauth"
+        },
         "method": "POST",
         "header": [
           {
