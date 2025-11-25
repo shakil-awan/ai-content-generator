@@ -511,10 +511,49 @@ async def generate_email_campaign(
             user_id=user_id
         )
         
-        # Convert dict output to string for storage
+        # Keep output as dict for processing, convert to string later if needed
         email_output = ai_result['output']
+        
+        # Handle dict output - extract all text content and flatten nested structures
+        def flatten_to_text(value, bullet_items=False):
+            """Recursively flatten any data structure to readable text"""
+            if isinstance(value, str):
+                return value
+            elif isinstance(value, (int, float, bool)):
+                return str(value)
+            elif isinstance(value, list):
+                if bullet_items:
+                    return '\n'.join([f"• {flatten_to_text(item)}" for item in value if item])
+                else:
+                    return '\n'.join([flatten_to_text(item) for item in value if item])
+            elif isinstance(value, dict):
+                return '\n'.join([flatten_to_text(v) for v in value.values() if v])
+            else:
+                return str(value)
+        
         if isinstance(email_output, dict):
-            email_output = json.dumps(email_output, indent=2)
+            content_parts = []
+            
+            # Try standard email keys first
+            for key in ['intro', 'body', 'closing', 'content', 'message', 'text']:
+                if key in email_output:
+                    value = email_output[key]
+                    # Use bullet points for lists in body sections
+                    use_bullets = key in ['body', 'features', 'benefits', 'highlights']
+                    content_parts.append(flatten_to_text(value, bullet_items=use_bullets))
+            
+            # If no standard keys found, extract all values
+            if not content_parts:
+                for key, value in email_output.items():
+                    if value:
+                        use_bullets = 'benefit' in key.lower() or 'feature' in key.lower()
+                        content_parts.append(flatten_to_text(value, bullet_items=use_bullets))
+            
+            email_content = '\n\n'.join(content_parts) if content_parts else json.dumps(email_output, indent=2)
+            output_dict = email_output
+        else:
+            email_content = str(email_output)
+            output_dict = {'content': email_content}
         
         quality_metrics = {
             'readabilityScore': 8.5,
@@ -535,7 +574,7 @@ async def generate_email_campaign(
                 'tone': request.tone,
                 'includePersonalization': request.include_personalization
             },
-            'output': email_output,
+            'output': json.dumps(output_dict, indent=2) if isinstance(output_dict, dict) else output_dict,
             'settings': {
                 'tone': request.tone,
                 'length': 'medium',
@@ -561,8 +600,8 @@ async def generate_email_campaign(
             id=generation_id,
             user_id=user_id,
             content_type=ContentType.EMAIL,
-            content=generation_data['output'].get('body', ''),
-            title=generation_data['output'].get('subject', ''),
+            content=email_content,
+            title=output_dict.get('subject', request.subject_line) if isinstance(output_dict, dict) else request.subject_line,
             settings=generation_data['settings'],
             quality_metrics=quality_metrics,
             fact_check_results=generation_data['factCheckResults'],
