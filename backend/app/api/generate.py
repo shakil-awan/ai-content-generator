@@ -1029,7 +1029,50 @@ async def generate_video_script(
             user_id=user_id
         )
         
+        # Handle dict output - extract all text content and flatten nested structures
+        def flatten_to_text(value, bullet_items=False):
+            """Recursively flatten any data structure to readable text"""
+            if isinstance(value, str):
+                return value
+            elif isinstance(value, (int, float, bool)):
+                return str(value)
+            elif isinstance(value, list):
+                if bullet_items:
+                    return '\n'.join([f"• {flatten_to_text(item)}" for item in value if item])
+                else:
+                    return '\n'.join([flatten_to_text(item) for item in value if item])
+            elif isinstance(value, dict):
+                return '\n'.join([flatten_to_text(v) for v in value.values() if v])
+            else:
+                return str(value)
+        
         video_output = ai_result['output']
+        
+        if isinstance(video_output, dict):
+            # Extract video script content from dict
+            video_content = ''
+            video_title = video_output.get('title', request.topic)
+            
+            # Try to get script content from various possible keys
+            for key in ['script', 'content', 'text', 'body']:
+                if key in video_output and video_output[key]:
+                    video_content = flatten_to_text(video_output[key])
+                    break
+            
+            # If no content found, combine all text values except title
+            if not video_content:
+                content_parts = []
+                for key, value in video_output.items():
+                    if key not in ['title', 'hook'] and value:
+                        use_bullets = 'scene' in key.lower() or 'section' in key.lower()
+                        content_parts.append(flatten_to_text(value, bullet_items=use_bullets))
+                video_content = '\n\n'.join(content_parts) if content_parts else json.dumps(video_output, indent=2)
+            
+            output_dict = video_output
+        else:
+            video_content = str(video_output)
+            video_title = request.topic
+            output_dict = {'script': video_content, 'title': video_title}
         
         quality_metrics = {
             'readabilityScore': 8.5,
@@ -1050,10 +1093,10 @@ async def generate_video_script(
                 'targetAudience': request.target_audience,
                 'tone': request.tone,
                 'keyPoints': request.key_points,
-                'includeHook': request.include_hook,
+                'includeHooks': request.include_hooks,
                 'includeCta': request.include_cta
             },
-            'output': video_output,
+            'output': json.dumps(output_dict, indent=2) if isinstance(output_dict, dict) else output_dict,
             'settings': {
                 'tone': request.tone,
                 'platform': request.platform,
@@ -1077,17 +1120,17 @@ async def generate_video_script(
         
         return GenerationResponse(
             id=generation_id,
-            userId=user_id,
-            contentType=ContentType.VIDEO_SCRIPT,
-            userInput=generation_data['userInput'],
-            output=generation_data['output'],
-            settings=generation_data['settings'],
-            qualityMetrics=quality_metrics,
-            factCheckResults=generation_data['factCheckResults'],
+            user_id=user_id,
+            content_type=ContentType.VIDEO_SCRIPT,
+            content=video_content,
+            title=video_title,
+            quality_metrics=quality_metrics,
+            fact_check_results=generation_data['factCheckResults'],
             humanization=generation_data['humanization'],
-            metadata=generation_data['metadata'],
-            createdAt=datetime.utcnow(),
-            updatedAt=datetime.utcnow()
+            generation_time=generation_data['metadata']['processingTime'],
+            model_used=generation_data['metadata']['modelUsed'],
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow()
         )
         
     except HTTPException:
