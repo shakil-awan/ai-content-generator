@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'humanization_json_keys.dart';
+
 /// AI Detection Analysis Model
 /// Represents detailed analysis of AI detection scoring
 class AIDetectionAnalysis {
@@ -39,20 +41,22 @@ class AIDetectionAnalysis {
   /// Create from JSON
   factory AIDetectionAnalysis.fromJson(Map<String, dynamic> json) {
     return AIDetectionAnalysis(
-      aiScore: (json['ai_score'] ?? 0).toDouble(),
-      confidence: (json['confidence'] ?? 0).toDouble(),
-      indicators: List<String>.from(json['indicators'] ?? []),
-      reasoning: json['reasoning'] ?? '',
+      aiScore: (json[HumanizationJsonKeys.aiScore] ?? 0).toDouble(),
+      confidence: (json[HumanizationJsonKeys.confidence] ?? 0).toDouble(),
+      indicators: List<String>.from(
+        json[HumanizationJsonKeys.indicators] ?? [],
+      ),
+      reasoning: json[HumanizationJsonKeys.reasoning] ?? '',
     );
   }
 
   /// Convert to JSON
   Map<String, dynamic> toJson() {
     return {
-      'ai_score': aiScore,
-      'confidence': confidence,
-      'indicators': indicators,
-      'reasoning': reasoning,
+      HumanizationJsonKeys.aiScore: aiScore,
+      HumanizationJsonKeys.confidence: confidence,
+      HumanizationJsonKeys.indicators: indicators,
+      HumanizationJsonKeys.reasoning: reasoning,
     };
   }
 

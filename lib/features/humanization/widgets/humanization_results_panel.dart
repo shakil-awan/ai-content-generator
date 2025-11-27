@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:gap/gap.dart';
+import 'package:get/get.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/custom_buttons.dart';
@@ -9,13 +10,24 @@ import '../models/humanization_result.dart';
 import 'ai_detection_score_display.dart';
 import 'before_after_comparison.dart';
 
+/// Humanization Results Panel Controller
+class HumanizationResultsPanelController extends GetxController {
+  final showComparison = false.obs;
+  final copied = false.obs;
+
+  void toggleComparison() => showComparison.value = !showComparison.value;
+
+  void setCopied(bool value) => copied.value = value;
+}
+
 /// Humanization Results Panel Widget
 /// Complete results display combining score, comparison, and actions
-class HumanizationResultsPanel extends StatefulWidget {
+class HumanizationResultsPanel extends StatelessWidget {
   final HumanizationResult result;
   final VoidCallback? onCopy;
   final VoidCallback? onTryAgain;
   final VoidCallback? onKeepOriginal;
+  final VoidCallback? onUseHumanized;
 
   const HumanizationResultsPanel({
     super.key,
@@ -23,34 +35,22 @@ class HumanizationResultsPanel extends StatefulWidget {
     this.onCopy,
     this.onTryAgain,
     this.onKeepOriginal,
+    this.onUseHumanized,
   });
 
-  @override
-  State<HumanizationResultsPanel> createState() =>
-      _HumanizationResultsPanelState();
-}
-
-class _HumanizationResultsPanelState extends State<HumanizationResultsPanel> {
-  bool _showComparison = false;
-  bool _copied = false;
-
-  void _handleCopy() {
-    Clipboard.setData(ClipboardData(text: widget.result.humanizedContent));
-    setState(() {
-      _copied = true;
-    });
+  void _handleCopy(HumanizationResultsPanelController controller) {
+    Clipboard.setData(ClipboardData(text: result.humanizedContent));
+    controller.setCopied(true);
     Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) {
-        setState(() {
-          _copied = false;
-        });
-      }
+      controller.setCopied(false);
     });
-    widget.onCopy?.call();
+    onCopy?.call();
   }
 
   @override
   Widget build(BuildContext context) {
+    final controller = Get.put(HumanizationResultsPanelController());
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -74,28 +74,26 @@ class _HumanizationResultsPanelState extends State<HumanizationResultsPanel> {
 
           // AI Detection Score Display
           AIDetectionScoreDisplay(
-            beforeScore: widget.result.beforeScore,
-            afterScore: widget.result.afterScore,
-            improvement: widget.result.improvement,
-            improvementPercentage: widget.result.improvementPercentage,
+            beforeScore: result.beforeScore,
+            afterScore: result.afterScore,
+            improvement: result.improvement,
+            improvementPercentage: result.improvementPercentage,
           ),
 
           const Gap(24),
 
           // Before/After Comparison
-          BeforeAfterComparison(
-            originalContent: widget.result.originalContent,
-            humanizedContent: widget.result.humanizedContent,
-            beforeScore: widget.result.beforeScore,
-            afterScore: widget.result.afterScore,
-            isExpanded: _showComparison,
-            onToggle: () {
-              setState(() {
-                _showComparison = !_showComparison;
-              });
-            },
-            onUseOriginal: widget.onKeepOriginal,
-            onUseHumanized: _handleCopy,
+          Obx(
+            () => BeforeAfterComparison(
+              originalContent: result.originalContent,
+              humanizedContent: result.humanizedContent,
+              beforeScore: result.beforeScore,
+              afterScore: result.afterScore,
+              isExpanded: controller.showComparison.value,
+              onToggle: controller.toggleComparison,
+              onUseOriginal: onKeepOriginal,
+              onUseHumanized: onUseHumanized,
+            ),
           ),
 
           const Gap(24),
@@ -105,21 +103,25 @@ class _HumanizationResultsPanelState extends State<HumanizationResultsPanel> {
             spacing: 12,
             runSpacing: 12,
             children: [
-              PrimaryButton(
-                text: _copied ? 'Copied!' : 'Copy Humanized',
-                onPressed: _copied ? null : _handleCopy,
-                icon: _copied ? Icons.check : Icons.copy,
+              Obx(
+                () => PrimaryButton(
+                  text: controller.copied.value ? 'Copied!' : 'Copy Humanized',
+                  onPressed: controller.copied.value
+                      ? null
+                      : () => _handleCopy(controller),
+                  icon: controller.copied.value ? Icons.check : Icons.copy,
+                ),
               ),
-              if (widget.onTryAgain != null)
+              if (onTryAgain != null)
                 SecondaryButton(
                   text: 'Try Again',
-                  onPressed: widget.onTryAgain,
+                  onPressed: onTryAgain,
                   icon: Icons.refresh,
                 ),
-              if (widget.onKeepOriginal != null)
+              if (onKeepOriginal != null)
                 CustomTextButton(
                   text: 'Keep Original',
-                  onPressed: widget.onKeepOriginal,
+                  onPressed: onKeepOriginal,
                 ),
             ],
           ),

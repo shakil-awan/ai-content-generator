@@ -68,6 +68,12 @@ class ApiEndpoints {
   static const String factCheckBase = '$apiVersion/generate';
   static const String factCheck = '$factCheckBase/fact-check';
 
+  // ==================== Quality Scoring ====================
+  static const String qualityBase = '$apiVersion/quality';
+  static const String qualityScore = '$qualityBase/score';
+  static const String qualitySuggestions = '$qualityBase/suggestions';
+  static const String qualityThresholds = '$qualityBase/thresholds';
+
   // ==================== Graphics ====================
   static const String graphicsBase = '$apiVersion/graphics';
   static const String generateGraphic = '$graphicsBase/generate';

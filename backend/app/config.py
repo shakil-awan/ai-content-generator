@@ -32,15 +32,19 @@ class Settings(BaseSettings):
     REPLICATE_API_KEY: str = ""  # For Flux Schnell image generation ($0.003/image)
     
     # Model Selection (See AI_MODELS_CONFIG.md)
-    PRIMARY_TEXT_MODEL: str = "gemini-2.0-flash"  # Primary for all text
+    PRIMARY_TEXT_MODEL: str = "gemini-2.5-flash"  # Primary for all text (65K tokens, upgraded from 2.0)
     FALLBACK_TEXT_MODEL: str = "gpt-4o-mini"  # Fallback on errors
-    PREMIUM_TEXT_MODEL: str = "gemini-2.5-flash"  # Enterprise tier only
+    PREMIUM_TEXT_MODEL: str = "gemini-2.5-pro"  # Enterprise tier only
     PRIMARY_IMAGE_MODEL: str = "flux-schnell"  # black-forest-labs/flux-schnell via Replicate
     PREMIUM_IMAGE_MODEL: str = "dall-e-3"  # Enterprise tier only
     
     # Fact-Checking APIs
     WOLFRAM_ALPHA_API_KEY: str = ""
     GOOGLE_SCHOLAR_API_KEY: str = ""
+    
+    # Google Custom Search (for AI fact-checking)
+    GOOGLE_SEARCH_API_KEY: str = ""  # 100 free queries/day, then $5/1000
+    GOOGLE_SEARCH_ENGINE_ID: str = ""  # Custom Search Engine ID
     
     # Firebase Configuration
     FIREBASE_PROJECT_ID: str = ""

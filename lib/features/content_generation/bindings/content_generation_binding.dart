@@ -2,6 +2,7 @@ import 'package:get/get.dart';
 
 import '../../../core/services/api_service.dart';
 import '../../image_generation/controllers/image_generation_controller.dart';
+import '../../quality_guarantee/services/quality_service.dart';
 import '../controllers/content_generation_controller.dart';
 import '../services/content_generation_service.dart';
 
@@ -13,6 +14,11 @@ class ContentGenerationBinding extends Bindings {
     // Register ApiService singleton if not already registered
     if (!Get.isRegistered<ApiService>()) {
       Get.put<ApiService>(ApiService(), permanent: true);
+    }
+
+    // Register QualityService
+    if (!Get.isRegistered<QualityService>()) {
+      Get.lazyPut<QualityService>(() => QualityService(Get.find<ApiService>()));
     }
 
     // Register ContentGenerationService

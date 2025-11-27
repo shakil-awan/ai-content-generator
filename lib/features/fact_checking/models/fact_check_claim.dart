@@ -1,18 +1,26 @@
 import 'package:flutter/material.dart';
 
+import 'fact_check_source.dart';
+
 /// Fact Check Claim Model
 /// Represents a single claim that has been fact-checked
 class FactCheckClaim {
   final String claim;
   final bool verified;
-  final String? source;
   final double confidence; // 0.0 - 1.0
+  final List<FactCheckSource> sources; // Enhanced with detailed source info
+  final String evidence;
+
+  // Legacy field for backward compatibility
+  final String? source;
 
   FactCheckClaim({
     required this.claim,
     required this.verified,
-    this.source,
     required this.confidence,
+    this.sources = const [],
+    this.evidence = '',
+    this.source,
   });
 
   /// Get confidence as percentage string (e.g., "85%")
@@ -51,8 +59,14 @@ class FactCheckClaim {
     return FactCheckClaim(
       claim: json['claim'] ?? '',
       verified: json['verified'] ?? false,
-      source: json['source'],
       confidence: (json['confidence'] ?? 0.0).toDouble(),
+      sources:
+          (json['sources'] as List?)
+              ?.map((s) => FactCheckSource.fromJson(s as Map<String, dynamic>))
+              .toList() ??
+          [],
+      evidence: json['evidence'] ?? '',
+      source: json['source'], // Legacy field
     );
   }
 
@@ -61,8 +75,10 @@ class FactCheckClaim {
     return {
       'claim': claim,
       'verified': verified,
-      'source': source,
       'confidence': confidence,
+      'sources': sources.map((s) => s.toJson()).toList(),
+      'evidence': evidence,
+      'source': source, // Legacy field
     };
   }
 
@@ -70,14 +86,18 @@ class FactCheckClaim {
   FactCheckClaim copyWith({
     String? claim,
     bool? verified,
-    String? source,
     double? confidence,
+    List<FactCheckSource>? sources,
+    String? evidence,
+    String? source,
   }) {
     return FactCheckClaim(
       claim: claim ?? this.claim,
       verified: verified ?? this.verified,
-      source: source ?? this.source,
       confidence: confidence ?? this.confidence,
+      sources: sources ?? this.sources,
+      evidence: evidence ?? this.evidence,
+      source: source ?? this.source,
     );
   }
 }

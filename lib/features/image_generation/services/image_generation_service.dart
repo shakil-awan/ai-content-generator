@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../../../core/constants/api_constants.dart';
@@ -49,7 +51,7 @@ class ImageGenerationService {
     final token = await _storage.read(key: AppConstants.tokenKey);
     if (token != null && token.isNotEmpty) {
       _apiService.setAuthToken(token);
-      print('🔐 Auth token retrieved from secure storage for image generation');
+      log('🔐 Auth token retrieved from secure storage for image generation');
     } else {
       throw ImageGenerationException('Not authenticated. Please login first.');
     }
@@ -85,8 +87,8 @@ class ImageGenerationService {
       // Ensure user is authenticated (retrieves token from secure storage)
       await _ensureAuthenticated();
 
-      print('🚀 Calling backend API: ${ApiEndpoints.generateImage}');
-      print(
+      log('🚀 Calling backend API: ${ApiEndpoints.generateImage}');
+      log(
         '📝 Request: ${request.prompt.substring(0, request.prompt.length > 50 ? 50 : request.prompt.length)}...',
       );
 
@@ -101,8 +103,8 @@ class ImageGenerationService {
         },
       );
 
-      print('✅ API Response received');
-      print('🖼️  Image URL: ${response['image_url']}');
+      log('✅ API Response received');
+      log('🖼️  Image URL: ${response['image_url']}');
 
       // Parse backend response (matches ImageGenerationResponse schema)
       return ImageResponse(
@@ -119,9 +121,9 @@ class ImageGenerationService {
       rethrow;
     } catch (e) {
       // Log error and fallback to mock data
-      print('❌ Image generation API error: $e');
-      print('⚠️  Falling back to mock data...');
-      print('💡 Make sure backend is running: uvicorn app.main:app --reload');
+      log('❌ Image generation API error: $e');
+      log('⚠️  Falling back to mock data...');
+      log('💡 Make sure backend is running: uvicorn app.main:app --reload');
       return _generateMockImage(request);
     }
   }
@@ -149,14 +151,14 @@ class ImageGenerationService {
   /// Calls backend: POST /api/v1/generate/image/batch
   ///
   /// Backend request body:
-  /// - prompts: List<string> (1-10 prompts)
+  /// - prompts: List of strings (1-10 prompts)
   /// - size: string
   /// - style: string
   /// - enhance_prompts: bool
   ///
   /// Backend response (MultipleImageResponse):
   /// - success: bool
-  /// - images: List<ImageGenerationResponse>
+  /// - images: List of image generation responses (as above)
   /// - total_cost: float
   /// - total_time: float
   /// - count: int
@@ -173,8 +175,8 @@ class ImageGenerationService {
           .where((p) => p.trim().isNotEmpty)
           .toList();
 
-      print('🚀 Calling batch API: ${ApiEndpoints.generateImageBatch}');
-      print('📝 Generating ${validPrompts.length} images...');
+      log('🚀 Calling batch API: ${ApiEndpoints.generateImageBatch}');
+      log('📝 Generating ${validPrompts.length} images...');
 
       final response = await _apiService.post(
         ApiEndpoints.generateImageBatch,
@@ -186,8 +188,8 @@ class ImageGenerationService {
         },
       );
 
-      print('✅ Batch API response received');
-      print(
+      log('✅ Batch API response received');
+      log(
         '📊 Generated ${response['count']} images in ${response['total_time']}s',
       );
 
@@ -209,8 +211,8 @@ class ImageGenerationService {
       // Re-throw authentication errors
       rethrow;
     } catch (e) {
-      print('❌ Batch image generation API error: $e');
-      print('⚠️  Falling back to mock data...');
+      log('❌ Batch image generation API error: $e');
+      log('⚠️  Falling back to mock data...');
       return _generateMockBatch(request);
     }
   }

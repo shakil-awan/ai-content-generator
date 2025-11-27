@@ -6,22 +6,24 @@ import 'package:flutter/material.dart';
 class QualityHelpers {
   QualityHelpers._();
 
-  /// Get color for metric score
+  /// Get color for metric score (positive and encouraging)
   static Color getMetricColor(double score) {
-    if (score >= 0.85) return const Color(0xFF059669); // Green-600
-    if (score >= 0.70) return const Color(0xFF2563EB); // Blue-600
-    if (score >= 0.60) return const Color(0xFFD97706); // Yellow-600
-    return const Color(0xFFDC2626); // Red-600
+    if (score >= 0.85) return const Color(0xFF059669); // Green-600 (A+/A)
+    if (score >= 0.70)
+      return const Color(0xFF10B981); // Green-500 (B - positive!)
+    if (score >= 0.60) return const Color(0xFF3B82F6); // Blue-500 (C)
+    if (score >= 0.50) return const Color(0xFFF59E0B); // Amber-500 (D)
+    return const Color(0xFFDC2626); // Red-600 (F)
   }
 
-  /// Get helper text for readability score
+  /// Get helper text for readability score (encouraging and positive)
   static String getReadabilityHelperText(double score) {
-    if (score >= 0.90) return 'Very easy to read (5th grade level)';
-    if (score >= 0.80) return 'Easy to read (7th grade level)';
-    if (score >= 0.70) return 'Fairly easy to read (8th grade level)';
-    if (score >= 0.60) return 'Standard (9-10th grade level)';
-    if (score >= 0.50) return 'Fairly difficult (college level)';
-    return 'Difficult to read (graduate level)';
+    if (score >= 0.90) return 'Very Easy to Read ✨ (5th grade)';
+    if (score >= 0.80) return 'Easy to Read 📖 (7th grade)';
+    if (score >= 0.70) return 'Clear & Accessible 📚 (8th-9th grade)';
+    if (score >= 0.60) return 'Standard Level 🎯 (10th grade)';
+    if (score >= 0.50) return 'Professional Level 🎓 (college)';
+    return 'Advanced Level 🔬 (graduate)';
   }
 
   /// Get helper text for completeness score
@@ -51,19 +53,19 @@ class QualityHelpers {
     return 'Needs improvement - multiple errors';
   }
 
-  /// Get overall helper text
+  /// Get overall helper text (encouraging and positive)
   static String getOverallHelperText(String grade) {
     switch (grade) {
       case 'A+':
-        return 'Exceptional quality - ready to publish';
+        return 'Exceptional quality! 🌟 Ready to publish';
       case 'A':
-        return 'High quality - minimal editing needed';
+        return 'Excellent work! ✨ Minimal editing needed';
       case 'B':
-        return 'Good quality - may need minor improvements';
+        return 'Great quality! 👍 Strong content overall';
       case 'C':
-        return 'Fair quality - consider regenerating';
+        return 'Good start! 💡 Check AI suggestions for improvements';
       case 'D':
-        return 'Low quality - regeneration recommended';
+        return 'Needs work 🔧 Consider regenerating';
       default:
         return 'No quality score available';
     }

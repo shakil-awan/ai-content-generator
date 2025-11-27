@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:get/get.dart';
 
 import '../models/humanization_result.dart';
@@ -47,12 +49,15 @@ class HumanizationController extends GetxController {
       humanizationsUsed.value = quota['used'] ?? 0;
       humanizationsLimit.value = quota['limit'] ?? 0;
     } catch (e) {
-      print('Error loading quota: $e');
+      log('Error loading quota: $e');
     }
   }
 
   /// Humanize content
-  Future<void> humanizeContent(String generationId) async {
+  Future<void> humanizeContent(
+    String generationId,
+    String originalContent,
+  ) async {
     if (!hasQuota) {
       errorMessage.value = 'Monthly humanization limit reached';
       return;
@@ -71,11 +76,12 @@ class HumanizationController extends GetxController {
       await Future.delayed(const Duration(milliseconds: 500));
       currentStep.value = 2;
 
-      // Call API
+      // Call API with actual generated content
       final result = await _service.humanizeContent(
         generationId: generationId,
         level: selectedLevel.value,
         preserveFacts: preserveFacts.value,
+        originalContent: originalContent,
       );
 
       // Step 3: Analyzing humanized version
@@ -85,7 +91,7 @@ class HumanizationController extends GetxController {
       humanizationsUsed.value++;
     } catch (e) {
       errorMessage.value = 'Humanization failed: ${e.toString()}';
-      print('Humanization error: $e');
+      log('Humanization error: $e');
     } finally {
       isHumanizing.value = false;
       currentStep.value = 0;

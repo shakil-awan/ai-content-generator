@@ -3,6 +3,8 @@ import 'package:get/get.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/routing/app_router.dart';
+import '../../quality_guarantee/models/quality_score.dart' as qm;
+import '../../quality_guarantee/services/quality_service.dart';
 import '../models/content_generation_request.dart';
 import '../models/content_generation_response.dart';
 import '../models/content_type.dart';
@@ -21,16 +23,27 @@ class ContentGenerationController extends GetxController {
   final generatedContent = Rxn<ContentGenerationResponse>();
   final errorMessage = ''.obs;
 
+  // Quality scoring state
+  final currentQualityScore = Rxn<qm.QualityScore>();
+  final isScoringQuality = false.obs;
+  final qualitySuggestions = <String>[].obs;
+  final regenerationAttempts = 0.obs;
+  final maxRegenerationAttempts = 3;
+
   // Blog Post Form Controllers
   final blogTitleController = TextEditingController();
   final blogAudienceController = TextEditingController();
   final blogKeyPointsController = TextEditingController();
   final blogKeywordsController = TextEditingController();
-  final blogWordCount = '1000-2000'.obs;
+  final blogWordCount = '500'.obs;
   final blogTone = 'Professional'.obs;
-  final blogAutoFactCheck = false.obs;
+  final blogAutoFactCheck = true.obs; // Enable fact-checking by default
   final blogIncludeVisuals = false.obs;
   final blogBrandVoiceId = Rxn<String>();
+  // Phase 2 new fields
+  final blogWritingStyle =
+      'Narrative'.obs; // narrative, listicle, how-to, case-study, comparison
+  final blogIncludeExamples = true.obs;
 
   // Social Media Form Controllers
   final socialTopicController = TextEditingController();
@@ -70,74 +83,6 @@ class ContentGenerationController extends GetxController {
   bool get canGenerateVideo =>
       videoTopicController.text.length >= 5 && !isGenerating.value;
 
-  /// Add mock fact-check data to response (for testing UI)
-  /// TODO: Remove this once backend implements fact-checking
-  ContentGenerationResponse _addMockFactCheckData(
-    ContentGenerationResponse response,
-  ) {
-    // Create mock fact-check results
-    final mockFactCheck = FactCheckResults(
-      checked: true,
-      claims: [
-        FactCheckClaim(
-          claim:
-              'Intel Core i5 or AMD Ryzen 5 processor is a good starting point for most students',
-          verified: true,
-          source: 'Intel Official Specifications & AMD Product Documentation',
-          confidence: 0.92,
-        ),
-        FactCheckClaim(
-          claim: 'Aim for at least 8GB of RAM, 16GB is even better',
-          verified: true,
-          source:
-              'Microsoft Windows System Requirements & Apple macOS Guidelines',
-          confidence: 0.88,
-        ),
-        FactCheckClaim(
-          claim: 'A Solid State Drive (SSD) is crucial for fast boot times',
-          verified: true,
-          source: 'Multiple tech benchmark studies',
-          confidence: 0.95,
-        ),
-        FactCheckClaim(
-          claim: '256GB is a decent starting point for storage',
-          verified: true,
-          source: 'Industry storage recommendations',
-          confidence: 0.65,
-        ),
-        FactCheckClaim(
-          claim:
-              'Laptops can range from a few hundred dollars to well over a thousand',
-          verified: false,
-          source: 'Vague pricing claim - no specific source',
-          confidence: 0.35,
-        ),
-      ],
-      verificationTime: 12.8,
-    );
-
-    // Create a new response with mock data
-    return ContentGenerationResponse(
-      id: response.id,
-      userId: response.userId,
-      contentType: response.contentType,
-      content: response.content,
-      title: response.title,
-      qualityMetrics: response.qualityMetrics,
-      factCheckResults: mockFactCheck,
-      humanization: response.humanization,
-      isContentRefresh: response.isContentRefresh,
-      originalContentId: response.originalContentId,
-      videoScriptSettings: response.videoScriptSettings,
-      generationTime: response.generationTime,
-      modelUsed: response.modelUsed,
-      exportedTo: response.exportedTo,
-      isFavorite: response.isFavorite,
-      createdAt: response.createdAt,
-      updatedAt: response.updatedAt,
-    );
-  }
-
   @override
   void onClose() {
     // Dispose controllers
@@ -169,14 +114,8 @@ class ContentGenerationController extends GetxController {
     errorMessage.value = '';
 
     try {
-      // Convert word count to length enum (500-1000 -> short, 1000-2000 -> medium, 2000+ -> long)
-      String length = 'medium';
-      if (blogWordCount.value == '500-1000') {
-        length = 'short';
-      } else if (blogWordCount.value == '2000-3000' ||
-          blogWordCount.value == '3000+') {
-        length = 'long';
-      }
+      // Phase 2: Use exact word count value from dropdown
+      int wordCount = int.tryParse(blogWordCount.value) ?? 1500;
 
       // Convert keywords string to array
       List<String> keywords = [];
@@ -192,24 +131,35 @@ class ContentGenerationController extends GetxController {
         keywords = [blogTitleController.text.trim()];
       }
 
+      // Phase 2: Prepare optional fields
+      final targetAudience = blogAudienceController.text.trim().isNotEmpty
+          ? blogAudienceController.text.trim()
+          : null;
+
+      final writingStyle = blogWritingStyle.value != 'Narrative'
+          ? blogWritingStyle.value.toLowerCase()
+          : null;
+
       final request = BlogPostRequest(
         topic: blogTitleController.text.trim(),
-        length: length,
+        wordCount: wordCount,
         tone: blogTone.value,
         keywords: keywords,
         includeSeo: true,
         includeImages: blogIncludeVisuals.value,
+        targetAudience: targetAudience,
+        writingStyle: writingStyle,
+        includeExamples: blogIncludeExamples.value,
+        enableFactCheck: blogAutoFactCheck.value,
       );
 
       final response = await _service.generateBlogPost(request: request);
 
-      // Add mock fact-check data if auto fact-check is enabled
-      // TODO: Remove this once backend implements fact-checking
-      if (blogAutoFactCheck.value) {
-        generatedContent.value = _addMockFactCheckData(response);
-      } else {
-        generatedContent.value = response;
-      }
+      // Use real backend response (backend now implements fact-checking)
+      generatedContent.value = response;
+
+      // Extract quality score from backend response (already included)
+      _extractQualityScoreFromResponse(response);
 
       // Navigate to results page using GoRouter
       final navContext = context ?? Get.context;
@@ -243,6 +193,9 @@ class ContentGenerationController extends GetxController {
       final response = await _service.generateSocialPost(request: request);
 
       generatedContent.value = response;
+
+      // Extract quality score from backend response (already included)
+      _extractQualityScoreFromResponse(response);
 
       // Navigate using GoRouter
       final context = Get.context;
@@ -281,6 +234,9 @@ class ContentGenerationController extends GetxController {
 
       generatedContent.value = response;
 
+      // Extract quality score from backend response (already included)
+      _extractQualityScoreFromResponse(response);
+
       // Navigate using GoRouter
       final context = Get.context;
       if (context != null && context.mounted) {
@@ -315,6 +271,9 @@ class ContentGenerationController extends GetxController {
 
       generatedContent.value = response;
 
+      // Extract quality score from backend response (already included)
+      _extractQualityScoreFromResponse(response);
+
       // Navigate using GoRouter
       final context = Get.context;
       if (context != null && context.mounted) {
@@ -335,8 +294,98 @@ class ContentGenerationController extends GetxController {
     // Success message will be shown in UI
   }
 
+  /// Extract quality score from backend response
+  /// Backend already calculates quality score, no need for separate API call
+  void _extractQualityScoreFromResponse(ContentGenerationResponse response) {
+    try {
+      final metrics = response.qualityMetrics;
+
+      // Convert backend quality metrics (0-10 scale) to QualityScore model (0-1 scale)
+      currentQualityScore.value = qm.QualityScore(
+        overall: metrics.overallScore / 10,
+        readability: metrics.readabilityScore / 10,
+        completeness:
+            metrics.completenessScore / 10, // NOW USING CORRECT SCORE!
+        seo: metrics.seoScore / 10, // NOW USING DEDICATED SEO SCORE!
+        grammar: metrics.grammarScore / 10,
+        grade: null, // Will be calculated by model
+        percentage: null, // Will be calculated by model
+        shouldRegenerate: metrics.overallScore < 6.0, // < 60% threshold
+      );
+
+      // Note: Backend quality_score comes from quality_scorer during generation
+      // No need for improvement suggestions since quality is already good (passed threshold)
+      qualitySuggestions.value = [];
+    } catch (e) {
+      print('Failed to extract quality score: $e');
+      // Don't fail silently - set empty score
+      currentQualityScore.value = null;
+    }
+  }
+
+  /// Score content quality using Quality API
+  Future<void> scoreContentQuality({
+    required String content,
+    required String contentType,
+    List<String>? keywords,
+    int? targetLength,
+  }) async {
+    if (content.isEmpty) return;
+
+    try {
+      isScoringQuality.value = true;
+      final qualityService = Get.find<QualityService>();
+
+      // Score the content
+      final result = await qualityService.scoreContent(
+        content: content,
+        contentType: contentType,
+        keywords: keywords,
+        targetLength: targetLength ?? 500,
+      );
+
+      // Convert to QualityScore model
+      currentQualityScore.value = qm.QualityScore(
+        overall: result.overall,
+        readability: result.readability,
+        completeness: result.completeness,
+        seo: result.seo,
+        grammar: result.grammar,
+        grade: result.grade,
+        percentage: result.percentage,
+        shouldRegenerate: result.shouldRegenerate,
+        details: qm.QualityDetails(
+          wordCount: result.details.wordCount,
+          sentenceCount: result.details.sentenceCount,
+          avgSentenceLength: result.details.avgSentenceLength,
+          paragraphCount: result.details.paragraphCount,
+          fleschKincaidScore: result.details.fleschKincaidScore,
+        ),
+      );
+
+      // If quality is low, get improvement suggestions
+      if (result.shouldRegenerate) {
+        final suggestions = await qualityService.getSuggestions(
+          overall: result.overall,
+          readability: result.readability,
+          completeness: result.completeness,
+          seo: result.seo,
+          grammar: result.grammar,
+        );
+        qualitySuggestions.value = suggestions.suggestions;
+      }
+    } catch (e) {
+      print('Quality scoring error: $e');
+      // Don't block content generation if quality scoring fails
+    } finally {
+      isScoringQuality.value = false;
+    }
+  }
+
   /// Regenerate current content
   Future<void> regenerateContent() async {
+    regenerationAttempts.value++;
+
     switch (selectedContentType.value) {
       case ContentType.blog:
         await generateBlogPost();
@@ -353,6 +402,11 @@ class ContentGenerationController extends GetxController {
       default:
         errorMessage.value = 'Content type not supported yet';
     }
+  }
+
+  /// Reset regeneration counter
+  void resetRegenerationAttempts() {
+    regenerationAttempts.value = 0;
   }
 
   /// Save content to history

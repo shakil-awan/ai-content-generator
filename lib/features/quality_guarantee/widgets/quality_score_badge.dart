@@ -55,10 +55,10 @@ class _QualityScoreBadgeState extends State<QualityScoreBadge>
 
   @override
   Widget build(BuildContext context) {
-    final grade = widget.qualityScore.grade;
+    final grade = widget.qualityScore.displayGrade;
     final color = widget.qualityScore.gradeColor;
     final bgColor = widget.qualityScore.gradeBackgroundColor;
-    final percentage = widget.qualityScore.percentage;
+    final percentage = widget.qualityScore.displayPercentage;
 
     return FadeTransition(
       opacity: _fadeAnimation,

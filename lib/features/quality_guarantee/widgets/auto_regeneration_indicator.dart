@@ -60,7 +60,7 @@ class AutoRegenerationIndicator extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: AppTheme.primary.withOpacity(0.1),
+            color: AppTheme.primary.withValues(alpha: 0.1),
             shape: BoxShape.circle,
           ),
           child: Icon(Icons.auto_fix_high, color: AppTheme.primary, size: 32),
@@ -110,7 +110,7 @@ class AutoRegenerationIndicator extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: AppTheme.warning.withOpacity(0.1),
+            color: AppTheme.warning.withValues(alpha: 0.1),
             shape: BoxShape.circle,
           ),
           child: Icon(
@@ -150,9 +150,9 @@ class AutoRegenerationIndicator extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: AppTheme.warning.withOpacity(0.1),
+            color: AppTheme.warning.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(AppTheme.radiusMD),
-            border: Border.all(color: AppTheme.warning.withOpacity(0.3)),
+            border: Border.all(color: AppTheme.warning.withValues(alpha: 0.3)),
           ),
           child: Column(
             children: [
@@ -199,7 +199,7 @@ class AutoRegenerationIndicator extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: AppTheme.success.withOpacity(0.1),
+            color: AppTheme.success.withValues(alpha: 0.1),
             shape: BoxShape.circle,
           ),
           child: Icon(Icons.check_circle, color: AppTheme.success, size: 32),

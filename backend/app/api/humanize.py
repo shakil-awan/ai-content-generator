@@ -197,6 +197,7 @@ async def humanize_content(
             'improvement': humanization_result['improvement'],
             'improvementPercentage': humanization_result['improvementPercentage'],
             'detectionApi': humanization_result['detectionApi'],
+            'humanizationModel': humanization_result.get('humanizationModel', 'unknown'),
             'processingTime': humanization_result['processingTime'],
             'humanizedAt': datetime.utcnow().isoformat()
         }
@@ -205,6 +206,8 @@ async def humanize_content(
         updated_output = output.copy()
         if content_type == ContentType.BLOG:
             updated_output['humanizedContent'] = humanization_result['humanizedContent']
+            # Update main content with humanized version
+            updated_output['content'] = humanization_result['humanizedContent']
         elif content_type == ContentType.SOCIAL_MEDIA:
             if isinstance(updated_output.get('posts'), list) and updated_output['posts']:
                 updated_output['posts'][0]['humanizedContent'] = humanization_result['humanizedContent']

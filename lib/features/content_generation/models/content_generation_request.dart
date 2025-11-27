@@ -23,34 +23,63 @@ class ContentGenerationRequest {
   }
 }
 
-/// Blog Post Request - Matches backend BlogGenerationRequest schema
+/// Blog Post Request - Matches backend BlogGenerationRequest schema (Phase 2)
 class BlogPostRequest {
-  final String topic; // Changed from 'title' to match backend
-  final String length; // Changed from 'wordCount', values: short, medium, long
-  final String
-  tone; // lowercase: professional, casual, friendly, formal, humorous
-  final List<String> keywords; // Changed from seoKeywords string to array
+  final String topic;
+  final int wordCount; // NEW Phase 2: Direct word count (500-4000)
+  final String?
+  length; // DEPRECATED: Use wordCount instead (kept for compatibility)
+  final String tone; // professional, casual, friendly, formal, humorous, etc.
+  final List<String> keywords;
   final bool includeSeo;
-  final bool includeImages; // Changed from includeVisuals
+  final bool includeImages;
+  // Phase 2 new fields
+  final String? targetAudience; // NEW: Target audience description
+  final String?
+  writingStyle; // NEW: narrative, listicle, how-to, case-study, comparison
+  final bool includeExamples; // NEW: Include real-world examples
+  final bool enableFactCheck; // NEW: Enable fact-checking with Google Search
 
   BlogPostRequest({
     required this.topic,
-    required this.length,
+    this.wordCount = 1000,
+    this.length, // Deprecated
     required this.tone,
     required this.keywords,
     this.includeSeo = true,
     this.includeImages = false,
+    this.targetAudience,
+    this.writingStyle,
+    this.includeExamples = true,
+    this.enableFactCheck = true, // Enable by default
   });
 
   Map<String, dynamic> toJson() {
-    return {
+    final json = {
       'topic': topic,
       'keywords': keywords,
       'tone': tone.toLowerCase(),
-      'length': length,
+      'word_count': wordCount,
       'include_seo': includeSeo,
       'include_images': includeImages,
+      'include_examples': includeExamples,
+      'enable_fact_check': enableFactCheck,
     };
+
+    // Add optional Phase 2 fields
+    if (targetAudience != null && targetAudience!.isNotEmpty) {
+      json['target_audience'] = targetAudience!;
+    }
+    if (writingStyle != null && writingStyle!.isNotEmpty) {
+      json['writing_style'] = writingStyle!;
+    }
+
+    // Backward compatibility: include length if wordCount not explicitly set
+    if (length != null) {
+      json['length'] = length!;
+    }
+
+    return json;
   }
 }
 

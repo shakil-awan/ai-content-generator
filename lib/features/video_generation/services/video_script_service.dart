@@ -201,10 +201,11 @@ class VideoScriptService {
     // Higher retention for shorter videos and engaging hooks
     int baseRetention = 65;
 
-    if (request.duration < 60)
+    if (request.duration < 60) {
       baseRetention += 15;
-    else if (request.duration > 180)
+    } else if (request.duration > 180) {
       baseRetention -= 10;
+    }
 
     if (request.includeHooks) baseRetention += 8;
     if ((request.keyPoints?.length ?? 0) >= 3) baseRetention += 5;

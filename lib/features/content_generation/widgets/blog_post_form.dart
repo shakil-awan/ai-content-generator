@@ -42,19 +42,14 @@ class BlogPostForm extends GetView<ContentGenerationController> {
               isExpanded: true,
               underline: const SizedBox(),
               items: const [
-                DropdownMenuItem(
-                  value: '500-1000',
-                  child: Text('500-1000 words'),
-                ),
-                DropdownMenuItem(
-                  value: '1000-2000',
-                  child: Text('1000-2000 words'),
-                ),
-                DropdownMenuItem(
-                  value: '2000-3000',
-                  child: Text('2000-3000 words'),
-                ),
-                DropdownMenuItem(value: '3000+', child: Text('3000+ words')),
+                DropdownMenuItem(value: '500', child: Text('500 words')),
+                DropdownMenuItem(value: '1000', child: Text('1000 words')),
+                DropdownMenuItem(value: '1500', child: Text('1500 words')),
+                DropdownMenuItem(value: '2000', child: Text('2000 words')),
+                DropdownMenuItem(value: '2500', child: Text('2500 words')),
+                DropdownMenuItem(value: '3000', child: Text('3000 words')),
+                DropdownMenuItem(value: '3500', child: Text('3500 words')),
+                DropdownMenuItem(value: '4000', child: Text('4000 words')),
               ],
               onChanged: (value) {
                 if (value != null) controller.blogWordCount.value = value;
@@ -90,6 +85,41 @@ class BlogPostForm extends GetView<ContentGenerationController> {
               ],
               onChanged: (value) {
                 if (value != null) controller.blogTone.value = value;
+              },
+            ),
+          ),
+        ),
+        const Gap(16),
+
+        // Writing Style dropdown
+        H3('Writing Style'),
+        const Gap(8),
+        Obx(
+          () => Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              border: Border.all(color: AppTheme.border),
+              borderRadius: AppTheme.borderRadiusMD,
+            ),
+            child: DropdownButton<String>(
+              value: controller.blogWritingStyle.value,
+              isExpanded: true,
+              underline: const SizedBox(),
+              items: const [
+                DropdownMenuItem(value: 'Narrative', child: Text('Narrative')),
+                DropdownMenuItem(value: 'Listicle', child: Text('Listicle')),
+                DropdownMenuItem(value: 'How-to', child: Text('How-to')),
+                DropdownMenuItem(
+                  value: 'Case-study',
+                  child: Text('Case Study'),
+                ),
+                DropdownMenuItem(
+                  value: 'Comparison',
+                  child: Text('Comparison'),
+                ),
+              ],
+              onChanged: (value) {
+                if (value != null) controller.blogWritingStyle.value = value;
               },
             ),
           ),
@@ -156,6 +186,19 @@ class BlogPostForm extends GetView<ContentGenerationController> {
       tilePadding: EdgeInsets.zero,
       childrenPadding: const EdgeInsets.symmetric(vertical: 8),
       children: [
+        Obx(
+          () => CheckboxListTile(
+            title: const BodyText('Include Real-World Examples'),
+            subtitle: const CaptionText(
+              'Adds 2-3 relevant examples to your blog',
+            ),
+            value: controller.blogIncludeExamples.value,
+            onChanged: (value) {
+              if (value != null) controller.blogIncludeExamples.value = value;
+            },
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
         Obx(
           () => CheckboxListTile(
             title: const BodyText('Auto Fact-Check (adds 10-15s)'),

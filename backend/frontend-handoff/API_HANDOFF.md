@@ -580,15 +580,19 @@ Content-Type: application/json
   "topic": "string (3-200 chars)",          // REQUIRED
   "keywords": ["keyword1", "keyword2"],     // REQUIRED (1-10 keywords)
   "tone": "professional|casual|friendly|formal|humorous|inspirational|informative",
-  "length": "short|medium|long"             // short=~500, medium=~1000, long=~2000 words
+  "word_count": 1500                         // REQUIRED (500-4000, default: 1000)
 }
 ```
 
-**Optional Parameters:**
+**Optional Parameters (Phase 2 Enhancements):**
 ```json
 {
+  "length": "short|medium|long",            // DEPRECATED: Use word_count instead (kept for compatibility)
   "include_seo": true,                      // Default: true
   "include_images": false,                  // Default: false
+  "target_audience": "marketing professionals",  // NEW: Target audience description (max 100 chars)
+  "writing_style": "how-to",               // NEW: narrative|listicle|how-to|case-study|comparison
+  "include_examples": true,                 // NEW: Include 2-3 real-world examples (default: true)
   "custom_settings": {}                     // Optional custom config
 }
 ```
@@ -602,7 +606,10 @@ curl -X POST "http://localhost:8001/api/v1/generate/blog" \
     "topic": "Benefits of AI in Healthcare",
     "keywords": ["AI", "healthcare", "innovation", "medical technology"],
     "tone": "professional",
-    "length": "medium",
+    "word_count": 1500,
+    "target_audience": "medical professionals and healthcare administrators",
+    "writing_style": "case-study",
+    "include_examples": true,
     "include_seo": true,
     "include_images": false
   }'
@@ -618,7 +625,10 @@ curl -X POST "http://localhost:8001/api/v1/generate/blog" \
   "content": "Full blog post content...",
   "settings": {
     "tone": "professional",
-    "length": "medium"
+    "word_count": 1500,
+    "target_audience": "medical professionals",
+    "writing_style": "case-study",
+    "include_examples": true
   },
   "quality_metrics": {
     "readability_score": 8.5,
@@ -626,11 +636,23 @@ curl -X POST "http://localhost:8001/api/v1/generate/blog" \
     "grammar_score": 9.5,
     "overall_score": 8.7
   },
-  "model_used": "gemini-2.0-flash",
+  "validation": {
+    "valid": true,
+    "quality_score": 95,
+    "word_count_accuracy": 97.5,
+    "issues": []
+  },
+  "model_used": "gemini-2.5-flash",
   "generation_time": 3.2,
   "created_at": "2025-11-25T10:00:00Z"
 }
 ```
+
+**Note:** `validation` object (Phase 2) includes:
+- `valid` (bool): Whether output meets all quality checks
+- `quality_score` (0-100): Overall quality rating
+- `word_count_accuracy` (percentage): How close to target word count
+- `issues` (array): List of validation issues (empty if valid)
 
 ---
 

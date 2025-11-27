@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'ai_detection_analysis.dart';
+import 'humanization_json_keys.dart';
 
 /// Humanization Result Model
 /// Represents the complete result of AI humanization process
@@ -88,36 +89,38 @@ class HumanizationResult {
   /// Create from JSON
   factory HumanizationResult.fromJson(Map<String, dynamic> json) {
     return HumanizationResult(
-      applied: json['applied'] ?? false,
-      level: json['level'] ?? 'balanced',
-      beforeScore: (json['before_score'] ?? 0).toDouble(),
-      afterScore: (json['after_score'] ?? 0).toDouble(),
-      improvement: (json['improvement'] ?? 0).toDouble(),
-      improvementPercentage: (json['improvement_percentage'] ?? 0).toDouble(),
+      applied: json[HumanizationJsonKeys.applied] ?? false,
+      level: json[HumanizationJsonKeys.level] ?? 'balanced',
+      beforeScore: (json[HumanizationJsonKeys.beforeScore] ?? 0).toDouble(),
+      afterScore: (json[HumanizationJsonKeys.afterScore] ?? 0).toDouble(),
+      improvement: (json[HumanizationJsonKeys.improvement] ?? 0).toDouble(),
+      improvementPercentage:
+          (json[HumanizationJsonKeys.improvementPercentage] ?? 0).toDouble(),
       beforeAnalysis: AIDetectionAnalysis.fromJson(
-        json['before_analysis'] as Map<String, dynamic>? ?? {},
+        json[HumanizationJsonKeys.beforeAnalysis] as Map<String, dynamic>? ??
+            {},
       ),
       afterAnalysis: AIDetectionAnalysis.fromJson(
-        json['after_analysis'] as Map<String, dynamic>? ?? {},
+        json[HumanizationJsonKeys.afterAnalysis] as Map<String, dynamic>? ?? {},
       ),
-      humanizedContent: json['humanized_content'] ?? '',
-      originalContent: json['original_content'] ?? '',
+      humanizedContent: json[HumanizationJsonKeys.humanizedContent] ?? '',
+      originalContent: json[HumanizationJsonKeys.originalContent] ?? '',
     );
   }
 
   /// Convert to JSON
   Map<String, dynamic> toJson() {
     return {
-      'applied': applied,
-      'level': level,
-      'before_score': beforeScore,
-      'after_score': afterScore,
-      'improvement': improvement,
-      'improvement_percentage': improvementPercentage,
-      'before_analysis': beforeAnalysis.toJson(),
-      'after_analysis': afterAnalysis.toJson(),
-      'humanized_content': humanizedContent,
-      'original_content': originalContent,
+      HumanizationJsonKeys.applied: applied,
+      HumanizationJsonKeys.level: level,
+      HumanizationJsonKeys.beforeScore: beforeScore,
+      HumanizationJsonKeys.afterScore: afterScore,
+      HumanizationJsonKeys.improvement: improvement,
+      HumanizationJsonKeys.improvementPercentage: improvementPercentage,
+      HumanizationJsonKeys.beforeAnalysis: beforeAnalysis.toJson(),
+      HumanizationJsonKeys.afterAnalysis: afterAnalysis.toJson(),
+      HumanizationJsonKeys.humanizedContent: humanizedContent,
+      HumanizationJsonKeys.originalContent: originalContent,
     };
   }
 

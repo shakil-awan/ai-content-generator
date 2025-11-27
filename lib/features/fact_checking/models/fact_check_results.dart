@@ -5,12 +5,20 @@ import 'fact_check_claim.dart';
 class FactCheckResults {
   final bool checked;
   final List<FactCheckClaim> claims;
+  final int claimsFound;
+  final int claimsVerified;
+  final double overallConfidence;
   final double verificationTime; // seconds
+  final int totalSearchesUsed; // Transparency: shows API usage
 
   FactCheckResults({
     required this.checked,
     required this.claims,
+    this.claimsFound = 0,
+    this.claimsVerified = 0,
+    this.overallConfidence = 0.0,
     required this.verificationTime,
+    this.totalSearchesUsed = 0,
   });
 
   /// Get total number of claims
@@ -45,7 +53,16 @@ class FactCheckResults {
               ?.map((c) => FactCheckClaim.fromJson(c as Map<String, dynamic>))
               .toList() ??
           [],
-      verificationTime: (json['verificationTime'] ?? 0).toDouble(),
+      claimsFound: json['claims_found'] ?? json['claimsFound'] ?? 0,
+      claimsVerified: json['claims_verified'] ?? json['claimsVerified'] ?? 0,
+      overallConfidence:
+          (json['overall_confidence'] ?? json['overallConfidence'] ?? 0.0)
+              .toDouble(),
+      verificationTime:
+          (json['verification_time'] ?? json['verificationTime'] ?? 0.0)
+              .toDouble(),
+      totalSearchesUsed:
+          json['total_searches_used'] ?? json['totalSearchesUsed'] ?? 0,
     );
   }
 
@@ -54,7 +71,11 @@ class FactCheckResults {
     return {
       'checked': checked,
       'claims': claims.map((c) => c.toJson()).toList(),
+      'claims_found': claimsFound,
+      'claims_verified': claimsVerified,
+      'overall_confidence': overallConfidence,
       'verificationTime': verificationTime,
+      'total_searches_used': totalSearchesUsed,
     };
   }
 
@@ -62,17 +83,33 @@ class FactCheckResults {
   FactCheckResults copyWith({
     bool? checked,
     List<FactCheckClaim>? claims,
+    int? claimsFound,
+    int? claimsVerified,
+    double? overallConfidence,
     double? verificationTime,
+    int? totalSearchesUsed,
   }) {
     return FactCheckResults(
       checked: checked ?? this.checked,
       claims: claims ?? this.claims,
+      claimsFound: claimsFound ?? this.claimsFound,
+      claimsVerified: claimsVerified ?? this.claimsVerified,
+      overallConfidence: overallConfidence ?? this.overallConfidence,
       verificationTime: verificationTime ?? this.verificationTime,
+      totalSearchesUsed: totalSearchesUsed ?? this.totalSearchesUsed,
     );
   }
 
   /// Create empty results
   factory FactCheckResults.empty() {
-    return FactCheckResults(checked: false, claims: [], verificationTime: 0.0);
+    return FactCheckResults(
+      checked: false,
+      claims: [],
+      claimsFound: 0,
+      claimsVerified: 0,
+      overallConfidence: 0.0,
+      verificationTime: 0.0,
+      totalSearchesUsed: 0,
+    );
   }
 }

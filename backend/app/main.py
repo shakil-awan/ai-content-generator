@@ -206,3 +206,7 @@ app.include_router(analytics.router)
 # Milestone 5: User Feedback & Quality Assurance
 from app.api import feedback
 app.include_router(feedback.router)
+
+# Quality Scoring API
+from app.api import quality
+app.include_router(quality.router)

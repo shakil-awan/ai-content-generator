@@ -38,7 +38,7 @@ class DisplayText extends StatelessWidget {
     //     ? AppTheme.textPrimaryDark
     //     : AppTheme.textPrimary;
 
-    return Text(
+    return SelectableText(
       text,
       style: TextStyle(
         fontSize: FontSizes.displayLarge,
@@ -47,7 +47,6 @@ class DisplayText extends StatelessWidget {
       ),
       textAlign: textAlign,
       maxLines: maxLines,
-      overflow: overflow,
     );
   }
 }
@@ -63,7 +62,7 @@ class H1 extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
+    return SelectableText(
       text,
       style: TextStyle(
         fontSize: FontSizes.h1,
@@ -72,7 +71,6 @@ class H1 extends StatelessWidget {
       ),
       textAlign: textAlign,
       maxLines: maxLines,
-      overflow: maxLines != null ? TextOverflow.ellipsis : null,
     );
   }
 }
@@ -88,7 +86,7 @@ class H2 extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
+    return SelectableText(
       text,
       style: TextStyle(
         fontSize: FontSizes.h2,
@@ -97,7 +95,6 @@ class H2 extends StatelessWidget {
       ),
       textAlign: textAlign,
       maxLines: maxLines,
-      overflow: maxLines != null ? TextOverflow.ellipsis : null,
     );
   }
 }
@@ -113,7 +110,7 @@ class H3 extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
+    return SelectableText(
       text,
       style: TextStyle(
         fontSize: FontSizes.h3,
@@ -122,7 +119,6 @@ class H3 extends StatelessWidget {
       ),
       textAlign: textAlign,
       maxLines: maxLines,
-      overflow: maxLines != null ? TextOverflow.ellipsis : null,
     );
   }
 }
@@ -146,7 +142,7 @@ class BodyText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
+    return SelectableText(
       text,
       style: TextStyle(
         fontSize: FontSizes.bodyRegular,
@@ -155,7 +151,6 @@ class BodyText extends StatelessWidget {
       ),
       textAlign: textAlign,
       maxLines: maxLines,
-      overflow: maxLines != null ? TextOverflow.ellipsis : null,
     );
   }
 }
@@ -177,7 +172,7 @@ class BodyTextLarge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
+    return SelectableText(
       text,
       style: TextStyle(
         fontSize: FontSizes.bodyLarge,
@@ -185,7 +180,6 @@ class BodyTextLarge extends StatelessWidget {
       ),
       textAlign: textAlign,
       maxLines: maxLines,
-      overflow: maxLines != null ? TextOverflow.ellipsis : null,
     );
   }
 }
@@ -207,7 +201,7 @@ class BodyTextSmall extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
+    return SelectableText(
       text,
       style: TextStyle(
         fontSize: FontSizes.bodySmall,
@@ -215,7 +209,6 @@ class BodyTextSmall extends StatelessWidget {
       ),
       textAlign: textAlign,
       maxLines: maxLines,
-      overflow: maxLines != null ? TextOverflow.ellipsis : null,
     );
   }
 }
@@ -237,7 +230,7 @@ class CaptionText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
+    return SelectableText(
       text,
       style: TextStyle(
         fontSize: FontSizes.captionRegular,
@@ -245,7 +238,6 @@ class CaptionText extends StatelessWidget {
       ),
       textAlign: textAlign,
       maxLines: maxLines,
-      overflow: maxLines != null ? TextOverflow.ellipsis : null,
     );
   }
 }

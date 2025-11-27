@@ -27,7 +27,7 @@ class ContentType(str, Enum):
     VIDEO_SCRIPT = "videoScript"
 
 class BlogLength(str, Enum):
-    """Blog post length options"""
+    """Blog post length options (deprecated - use word_count field instead)"""
     SHORT = "short"  # ~500 words
     MEDIUM = "medium"  # ~1000 words
     LONG = "long"  # ~2000+ words
@@ -77,33 +77,79 @@ class Tone(str, Enum):
 class QualityMetrics(BaseModel):
     """AI-generated quality scores"""
     readability_score: float = Field(default=0.0, ge=0, le=10)
-    originality_score: float = Field(default=0.0, ge=0, le=10)
+    completeness_score: float = Field(default=0.0, ge=0, le=10, description="Structure, depth, length")
+    seo_score: float = Field(default=0.0, ge=0, le=10, description="SEO optimization")
     grammar_score: float = Field(default=0.0, ge=0, le=10)
+    originality_score: float = Field(default=0.0, ge=0, le=10)
     fact_check_score: float = Field(default=0.0, ge=0, le=10)
     ai_detection_score: float = Field(default=0.0, ge=0, le=10, description="Lower = more human-like")
     overall_score: float = Field(default=0.0, ge=0, le=10)
+
+class FactCheckSource(BaseModel):
+    """Detailed source information for fact-checking"""
+    url: str
+    title: str
+    snippet: str
+    domain: str
+    authority_level: str  # 'government', 'academic', 'organization', 'news', 'general'
 
 class FactCheckClaim(BaseModel):
     """Individual fact check claim"""
     claim: str
     verified: bool
-    source: Optional[str] = None
     confidence: float = Field(ge=0, le=1)
+    sources: List[FactCheckSource] = Field(default_factory=list)
+    evidence: str = ""
+    # Legacy field for backward compatibility
+    source: Optional[str] = None
 
 class FactCheckResults(BaseModel):
     """Fact checking results"""
     checked: bool = False
     claims: List[FactCheckClaim] = Field(default_factory=list)
+    claims_found: int = 0
+    claims_verified: int = 0
+    overall_confidence: float = 0.0
     verification_time: float = 0.0  # seconds
+    total_searches_used: int = 0  # Transparency: show API usage
 
 class HumanizationResult(BaseModel):
-    """AI humanization tracking"""
-    applied: bool = False
-    level: Optional[HumanizationLevel] = None
-    before_score: float = Field(default=0.0, ge=0, le=10)
-    after_score: float = Field(default=0.0, ge=0, le=10)
-    detection_api: Optional[str] = None  # Which API was used
-    processing_time: float = 0.0  # seconds
+    """AI humanization result from API"""
+    # Required when returned from humanize endpoint
+    generationId: Optional[str] = Field(None, description="ID of the generation that was humanized")
+    originalContent: Optional[str] = Field(None, description="Original AI-generated content")
+    humanizedContent: Optional[str] = Field(None, description="Humanized version of content")
+    beforeScore: Optional[float] = Field(None, ge=0, le=100, description="AI detection score before (0-100)")
+    afterScore: Optional[float] = Field(None, ge=0, le=100, description="AI detection score after (0-100)")
+    improvement: Optional[float] = Field(None, description="Score improvement (beforeScore - afterScore)")
+    improvementPercentage: Optional[float] = Field(None, description="Improvement as percentage")
+    level: Optional[str] = Field(None, description="Humanization level used")
+    detectionApi: Optional[str] = Field(None, description="Detection API used")
+    processingTime: float = Field(default=0.0, description="Processing time in seconds")
+    tokensUsed: int = Field(default=0, description="Tokens used in humanization")
+    beforeAnalysis: Dict[str, Any] = Field(default_factory=dict, description="Analysis before humanization")
+    afterAnalysis: Dict[str, Any] = Field(default_factory=dict, description="Analysis after humanization")
+    appliedAt: Optional[datetime] = Field(None, description="Timestamp when humanization was applied")
+    
+    # Legacy fields for compatibility with generation response
+    applied: bool = Field(default=False, description="Whether humanization has been applied")
+    before_score: Optional[float] = Field(None, ge=0, le=10, description="Legacy: AI detection score before (0-10)")
+    after_score: Optional[float] = Field(None, ge=0, le=10, description="Legacy: AI detection score after (0-10)")
+    detection_api: Optional[str] = Field(None, description="Legacy: Detection API used")
+
+class ValidationIssue(BaseModel):
+    """Individual validation issue"""
+    field: str
+    expected: str
+    actual: Any
+    severity: str  # 'high', 'medium', 'low'
+
+class ValidationResult(BaseModel):
+    """Post-generation validation results (Phase 2)"""
+    valid: bool = True
+    issues: List[ValidationIssue] = Field(default_factory=list)
+    quality_score: float = Field(default=100.0, ge=0, le=100, description="Overall quality score 0-100")
+    word_count_accuracy: float = Field(default=100.0, ge=0, le=100, description="Word count accuracy percentage")
 
 class VideoScriptSettings(BaseModel):
     """Video script specific settings"""
@@ -119,10 +165,62 @@ class BlogGenerationRequest(BaseModel):
     topic: str = Field(..., min_length=3, max_length=200)
     keywords: List[str] = Field(..., min_length=1, max_length=10)
     tone: Tone = Tone.PROFESSIONAL
-    length: BlogLength = BlogLength.MEDIUM
+    word_count: int = Field(
+        default=1000,
+        ge=500,
+        le=4000,
+        description="Target word count (500-4000, recommended increments of 500)"
+    )
+    length: Optional[BlogLength] = Field(
+        default=None,
+        description="Deprecated: Use word_count instead. Kept for backward compatibility."
+    )
     include_seo: bool = True
     include_images: bool = False
+    # Phase 2: Enhanced fields
+    target_audience: Optional[str] = Field(
+        default=None,
+        max_length=100,
+        description="Target audience for the content (e.g., 'small business owners', 'tech enthusiasts')"
+    )
+    writing_style: Optional[str] = Field(
+        default=None,
+        description="Writing style: narrative, listicle, how-to, case-study, comparison"
+    )
+    include_examples: bool = Field(
+        default=True,
+        description="Include 2-3 real-world examples in the content"
+    )
+    enable_fact_check: bool = Field(
+        default=False,
+        description="Enable AI fact-checking with Google Custom Search (budget-aware)"
+    )
     custom_settings: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    
+    @field_validator('writing_style')
+    @classmethod
+    def validate_writing_style(cls, v: Optional[str]) -> Optional[str]:
+        """Validate writing style is one of the supported types"""
+        if v is None:
+            return v
+        allowed_styles = ["narrative", "listicle", "how-to", "case-study", "comparison"]
+        if v.lower() not in allowed_styles:
+            raise ValueError(f"Writing style must be one of: {', '.join(allowed_styles)}")
+        return v.lower()
+    
+    @field_validator('word_count')
+    @classmethod
+    def validate_word_count(cls, v: int) -> int:
+        """Ensure word count is in valid range (500-4000)"""
+        if v < 500:
+            raise ValueError('Word count must be at least 500')
+        if v > 4000:
+            raise ValueError('Word count cannot exceed 4000')
+        # Recommend increments of 500 but don't enforce strictly
+        if v % 500 != 0 and v not in range(500, 4001, 100):
+            # Round to nearest 100 for flexibility
+            v = round(v / 100) * 100
+        return v
     
     @field_validator('keywords')
     @classmethod
@@ -139,7 +237,10 @@ class BlogGenerationRequest(BaseModel):
                 "topic": "The Future of AI in Content Marketing",
                 "keywords": ["AI", "content marketing", "automation", "SEO"],
                 "tone": "professional",
-                "length": "medium",
+                "word_count": 1500,
+                "target_audience": "marketing professionals and business owners",
+                "writing_style": "how-to",
+                "include_examples": True,
                 "include_seo": True,
                 "include_images": False
             }
@@ -287,14 +388,17 @@ class VideoScriptRequest(BaseModel):
 
 class HumanizationRequest(BaseModel):
     """Request to humanize AI-generated content"""
-    generation_id: str = Field(..., description="ID of generation to humanize")
-    level: HumanizationLevel = HumanizationLevel.LIGHT
+    level: HumanizationLevel = HumanizationLevel.BALANCED
+    preserve_facts: bool = Field(
+        default=True,
+        description="Whether to preserve factual information during humanization"
+    )
     
     class Config:
         json_schema_extra = {
             "example": {
-                "generation_id": "gen_12345",
-                "level": "deep"
+                "level": "balanced",
+                "preserve_facts": True
             }
         }
 
@@ -307,9 +411,15 @@ class GenerationResponse(BaseModel):
     content_type: ContentType
     content: str
     title: Optional[str] = None
+    meta_description: Optional[str] = None  # SEO meta description from AI
+    word_count: Optional[int] = None  # Actual word count from AI generation
     quality_metrics: QualityMetrics
     fact_check_results: FactCheckResults
     humanization: HumanizationResult
+    validation: Optional[ValidationResult] = None  # Phase 2: Post-generation validation
+    ai_suggestions: List[str] = Field(default_factory=list, description="AI-powered improvement suggestions")
+    ai_quality_metrics: Optional[Dict[str, Any]] = Field(None, description="Deep AI quality analysis (grammar, style, tone, engagement)")
+    settings: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Generation settings (tone, length, etc)")
     is_content_refresh: bool = False
     original_content_id: Optional[str] = None
     video_script_settings: Optional[VideoScriptSettings] = None

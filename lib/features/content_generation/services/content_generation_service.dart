@@ -43,10 +43,76 @@ class ContentGenerationService {
     final endpoint = _getEndpointForContentType(contentType);
 
     try {
+      print('\n═══ API REQUEST ═══');
+      print('Endpoint: $endpoint');
+      print('Parameters: $parameters');
+
       final response = await _apiService.post(endpoint, body: parameters);
-      return ContentGenerationResponse.fromJson(
+
+      print('\n═══ API RAW RESPONSE ═══');
+      print('Response type: ${response.runtimeType}');
+      if (response is Map<String, dynamic>) {
+        print('Response keys: ${response.keys.toList()}');
+
+        // Log fact check results specifically
+        if (response.containsKey('fact_check_results')) {
+          final fcr = response['fact_check_results'];
+          print('\n═══ FACT CHECK RESULTS (RAW) ═══');
+          print('Type: ${fcr.runtimeType}');
+          if (fcr is Map<String, dynamic>) {
+            print('Keys: ${fcr.keys.toList()}');
+            print('checked: ${fcr['checked']}');
+            print('claims_found: ${fcr['claims_found']}');
+            print('claims_verified: ${fcr['claims_verified']}');
+            print('overall_confidence: ${fcr['overall_confidence']}');
+            print('total_searches_used: ${fcr['total_searches_used']}');
+
+            final claims = fcr['claims'];
+            print('claims type: ${claims.runtimeType}');
+            print('claims length: ${claims is List ? claims.length : "N/A"}');
+
+            if (claims is List && claims.isNotEmpty) {
+              print('\nFirst claim keys: ${(claims[0] as Map).keys.toList()}');
+              print('First claim verified: ${claims[0]['verified']}');
+              final sources = claims[0]['sources'];
+              print('First claim sources type: ${sources.runtimeType}');
+              print(
+                'First claim sources length: ${sources is List ? sources.length : "N/A"}',
+              );
+
+              if (sources is List && sources.isNotEmpty) {
+                print(
+                  'First source keys: ${(sources[0] as Map).keys.toList()}',
+                );
+                print(
+                  'First source authority_level: ${sources[0]['authority_level']}',
+                );
+              }
+            }
+          }
+        }
+      }
+
+      final parsedResponse = ContentGenerationResponse.fromJson(
         response as Map<String, dynamic>,
       );
+
+      print('\n═══ PARSED RESPONSE ═══');
+      final fcr = parsedResponse.factCheckResults;
+      print('checked: ${fcr.checked}');
+      print('claims length: ${fcr.claims.length}');
+      print('claims_found: ${fcr.claimsFound}');
+      print('claims_verified: ${fcr.claimsVerified}');
+      if (fcr.claims.isNotEmpty) {
+        print('First claim sources length: ${fcr.claims[0].sources.length}');
+        if (fcr.claims[0].sources.isNotEmpty) {
+          print(
+            'First source authority: ${fcr.claims[0].sources[0].authorityLevel}',
+          );
+        }
+      }
+
+      return parsedResponse;
     } on ApiException catch (e) {
       // Re-throw ApiException with user-friendly message
       throw ContentGenerationException(e.userFriendlyMessage);

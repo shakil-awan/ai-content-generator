@@ -129,13 +129,20 @@ async def generate_blog_post(
                 }
             )
         
-        # Map length enum to word count
-        word_count_map = {
-            "short": 500,
-            "medium": 1000,
-            "long": 2000
-        }
-        target_word_count = word_count_map.get(request.length, 1000)
+        # Use word_count from request (supports 500-4000 words)
+        # Fall back to length enum for backward compatibility
+        if hasattr(request, 'word_count') and request.word_count:
+            target_word_count = request.word_count
+        elif request.length:
+            # Backward compatibility: map old length enum
+            word_count_map = {
+                "short": 500,
+                "medium": 1000,
+                "long": 2000
+            }
+            target_word_count = word_count_map.get(request.length, 1000)
+        else:
+            target_word_count = 1000  # Default
         
         # Enhance user prompt for better AI output
         enhanced_topic = improve_prompt(
@@ -157,24 +164,79 @@ async def generate_blog_post(
             word_count=target_word_count,
             sections=None,
             user_tier=user_plan,
-            user_id=user_id
+            user_id=user_id,
+            target_audience=request.target_audience,  # Phase 2
+            writing_style=request.writing_style,  # Phase 2
+            include_examples=request.include_examples  # Phase 2
         )
         
-        # Extract AI output
+        # Extract AI output and timing
         blog_output = ai_result['output']
         tokens_used = ai_result['tokensUsed']
         model_used = ai_result['model']
+        generation_time = ai_result.get('generation_time', 0.0)  # Actual time from AI service
+        quality_score_data = ai_result.get('quality_score', {})  # Real quality score from AI service
         
-        # Calculate quality metrics (simple scoring for now)
-        # TODO: Implement real quality scoring in future milestone
+        # Use REAL quality metrics from quality_scorer (not mock data!)
         quality_metrics = {
-            'readabilityScore': 8.5,  # Will be calculated by quality service later
-            'originality': 9.0,
-            'grammarScore': 9.5,
-            'factCheckScore': 0.0,  # Fact checking not implemented yet
-            'aiDetectionScore': 7.5,  # Lower = more human-like
-            'overallQuality': 8.5
+            'readability_score': quality_score_data.get('readability', 0) * 10,  # Convert 0-1 to 0-10 scale
+            'completeness_score': quality_score_data.get('completeness', 0) * 10,  # Structure, depth, length
+            'seo_score': quality_score_data.get('seo', 0) * 10,  # SEO optimization
+            'grammar_score': quality_score_data.get('grammar', 0) * 10,  # Convert 0-1 to 0-10 scale
+            'originality_score': 9.0,  # Placeholder - requires separate API
+            'fact_check_score': 0.0,  # Will be populated by AI fact-checker if enabled
+            'ai_detection_score': 7.5,  # Placeholder - requires separate API
+            'overall_score': quality_score_data.get('overall', 0) * 10  # Convert 0-1 to 0-10 scale
         }
+        
+        # Phase 3: Optional AI fact-checking (only if user enables it)
+        # Cost: ~$0.0005 per check (budget-optimized: only verifies top 2-3 claims)
+        fact_check_data = {'checked': False, 'claims': [], 'verificationTime': 0}
+        if request.enable_fact_check and openai_service.fact_checker:
+            try:
+                content_text = blog_output.get('content', '')
+                fact_check_result = await openai_service.fact_checker.check_facts(
+                    content=content_text,
+                    content_type='blog',
+                    enable_fact_check=True
+                )
+                
+                if fact_check_result.checked:
+                    # Update fact check score based on verification results
+                    quality_metrics['fact_check_score'] = fact_check_result.overall_confidence * 10
+                    
+                    # Convert fact check claims to enhanced Firestore format with sources array
+                    fact_check_data = {
+                        'checked': True,
+                        'claims': [
+                            {
+                                'claim': claim.claim,
+                                'verified': claim.verified,
+                                'confidence': claim.confidence,
+                                'evidence': claim.evidence,
+                                'sources': [
+                                    {
+                                        'url': source.url,
+                                        'title': source.title,
+                                        'snippet': source.snippet,
+                                        'domain': source.domain,
+                                        'authority_level': source.authority_level
+                                    }
+                                    for source in claim.sources
+                                ]
+                            }
+                            for claim in fact_check_result.claims
+                        ],
+                        'claims_found': fact_check_result.claims_found,
+                        'claims_verified': fact_check_result.claims_verified,
+                        'overall_confidence': fact_check_result.overall_confidence,
+                        'verification_time': fact_check_result.verification_time,
+                        'total_searches_used': fact_check_result.total_searches_used
+                    }
+                    
+                    logger.info(f"✅ Fact-check complete: {len(fact_check_result.claims)} claims verified (confidence: {fact_check_result.overall_confidence:.2f})")
+            except Exception as e:
+                logger.error(f"Fact-checking failed (skipping): {e}")
         
         # Prepare generation document for Firestore
         generation_data = {
@@ -201,15 +263,11 @@ async def generate_blog_post(
                 'customSettings': request.custom_settings or {}
             },
             'qualityMetrics': quality_metrics,
-            'factCheckResults': {
-                'checked': False,
-                'claims': [],
-                'verificationTime': 0
-            },
+            'factCheckResults': fact_check_data,
             'humanization': {
                 'applied': False,
                 'level': None,
-                'beforeScore': quality_metrics['aiDetectionScore'],
+                'beforeScore': quality_metrics['ai_detection_score'],
                 'afterScore': 0,
                 'detectionApi': None,
                 'processingTime': 0
@@ -217,9 +275,12 @@ async def generate_blog_post(
             'metadata': {
                 'tokensUsed': tokens_used,
                 'modelUsed': model_used,
-                'processingTime': 0.0,  # TODO: Track actual time
+                'processingTime': generation_time,  # Actual AI generation time
                 'costEstimate': tokens_used * 0.00001  # Rough estimate
-            }
+            },
+            'generationTime': generation_time,  # Store at root level for easy access
+            'tokensUsed': tokens_used,  # Store at root level for compatibility
+            'modelUsed': model_used  # Store at root level for compatibility
         }
         
         # Save generation to Firestore (returns generation_id)
@@ -235,6 +296,24 @@ async def generate_blog_post(
         # Get updated user to recalculate average quality
         updated_user = await firebase_service.get_user(user_id)
         
+        # Extract validation results (Phase 2)
+        validation_result = ai_result.get('validation')
+        
+        # Extract AI quality analysis and suggestions (Phase 3)
+        ai_suggestions = []
+        ai_quality_data = None
+        if 'ai_analysis' in ai_result and ai_result['ai_analysis']:
+            ai_data = ai_result['ai_analysis']
+            ai_suggestions = ai_data.get('improvements', [])
+            ai_quality_data = {
+                'grammar': ai_data.get('grammar_score', 0),
+                'style': ai_data.get('style_score', 0),
+                'tone': ai_data.get('tone_score', 0),
+                'engagement': ai_data.get('engagement_score', 0),
+                'overall': ai_data.get('overall_ai_score', 0),
+                'strengths': ai_data.get('strengths', [])
+            }
+        
         # Build response with REAL stats from database
         response = GenerationResponse(
             id=generation_id,
@@ -242,11 +321,16 @@ async def generate_blog_post(
             content_type=ContentType.BLOG,
             content=generation_data['output'].get('content', ''),
             title=generation_data['output'].get('title', ''),
+            meta_description=generation_data['output'].get('metaDescription'),  # SEO meta description
+            word_count=generation_data['output'].get('wordCount'),  # Actual word count from AI
             settings=generation_data['settings'],
             quality_metrics=quality_metrics,
             fact_check_results=generation_data['factCheckResults'],
             humanization=generation_data['humanization'],
-            generation_time=generation_data['metadata']['processingTime'],
+            validation=validation_result,  # Phase 2: Include validation
+            ai_suggestions=ai_suggestions,  # Phase 3: AI-powered improvement suggestions
+            ai_quality_metrics=ai_quality_data,  # Phase 3: Deep AI quality analysis
+            generation_time=generation_time,
             model_used=model_used,
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow()
@@ -388,14 +472,18 @@ async def generate_social_media(
         )
         
         social_output = ai_result['output']
+        quality_score_data = ai_result.get('quality_score', {})
         
+        # Use REAL quality metrics from quality_scorer
         quality_metrics = {
-            'readabilityScore': 9.0,
-            'originality': 8.5,
-            'grammarScore': 9.5,
-            'factCheckScore': 0.0,
-            'aiDetectionScore': 7.0,
-            'overallQuality': 8.5
+            'readability_score': quality_score_data.get('readability', 0) * 10,
+            'completeness_score': quality_score_data.get('completeness', 0) * 10,
+            'seo_score': quality_score_data.get('seo', 0) * 10,
+            'grammar_score': quality_score_data.get('grammar', 0) * 10,
+            'originality_score': 8.5,  # Placeholder
+            'fact_check_score': 0.0,
+            'ai_detection_score': 7.0,  # Placeholder
+            'overall_score': quality_score_data.get('overall', 0) * 10
         }
         
         generation_data = {
@@ -417,7 +505,7 @@ async def generate_social_media(
             },
             'qualityMetrics': quality_metrics,
             'factCheckResults': {'checked': False, 'claims': [], 'verificationTime': 0},
-            'humanization': {'applied': False, 'level': None, 'beforeScore': 7.0, 'afterScore': 0},
+            'humanization': {'applied': False, 'level': None, 'beforeScore': quality_metrics['ai_detection_score'], 'afterScore': 0},
             'metadata': {
                 'tokensUsed': ai_result['tokensUsed'],
                 'modelUsed': ai_result['model'],
@@ -428,6 +516,21 @@ async def generate_social_media(
         
         generation_id = await firebase_service.save_generation(generation_data)
         await firebase_service.increment_usage(user_id)
+        
+        # Extract AI quality analysis
+        ai_suggestions = []
+        ai_quality_data = None
+        if 'ai_analysis' in ai_result and ai_result['ai_analysis']:
+            ai_data = ai_result['ai_analysis']
+            ai_suggestions = ai_data.get('improvements', [])
+            ai_quality_data = {
+                'grammar': ai_data.get('grammar_score', 0),
+                'style': ai_data.get('style_score', 0),
+                'tone': ai_data.get('tone_score', 0),
+                'engagement': ai_data.get('engagement_score', 0),
+                'overall': ai_data.get('overall_ai_score', 0),
+                'strengths': ai_data.get('strengths', [])
+            }
         
         logger.info(f"Social media generation complete for user {user_id}")
         
@@ -441,6 +544,8 @@ async def generate_social_media(
             quality_metrics=quality_metrics,
             fact_check_results=generation_data['factCheckResults'],
             humanization=generation_data['humanization'],
+            ai_suggestions=ai_suggestions,
+            ai_quality_metrics=ai_quality_data,
             generation_time=generation_data['metadata']['processingTime'],
             model_used=generation_data['metadata']['modelUsed'],
             created_at=datetime.utcnow(),
@@ -555,13 +660,18 @@ async def generate_email_campaign(
             email_content = str(email_output)
             output_dict = {'content': email_content}
         
+        quality_score_data = ai_result.get('quality_score', {})
+        
+        # Use REAL quality metrics from quality_scorer
         quality_metrics = {
-            'readabilityScore': 8.5,
-            'originality': 8.8,
-            'grammarScore': 9.5,
-            'factCheckScore': 0.0,
-            'aiDetectionScore': 7.2,
-            'overallQuality': 8.6
+            'readability_score': quality_score_data.get('readability', 0) * 10,
+            'completeness_score': quality_score_data.get('completeness', 0) * 10,
+            'seo_score': quality_score_data.get('seo', 0) * 10,
+            'grammar_score': quality_score_data.get('grammar', 0) * 10,
+            'originality_score': 8.8,  # Placeholder
+            'fact_check_score': 0.0,
+            'ai_detection_score': 7.2,  # Placeholder
+            'overall_score': quality_score_data.get('overall', 0) * 10
         }
         
         generation_data = {
@@ -582,7 +692,7 @@ async def generate_email_campaign(
             },
             'qualityMetrics': quality_metrics,
             'factCheckResults': {'checked': False, 'claims': [], 'verificationTime': 0},
-            'humanization': {'applied': False, 'level': None, 'beforeScore': 7.2, 'afterScore': 0},
+            'humanization': {'applied': False, 'level': None, 'beforeScore': quality_metrics['ai_detection_score'], 'afterScore': 0},
             'metadata': {
                 'tokensUsed': ai_result['tokensUsed'],
                 'modelUsed': ai_result['model'],
@@ -593,6 +703,21 @@ async def generate_email_campaign(
         
         generation_id = await firebase_service.save_generation(generation_data)
         await firebase_service.increment_usage(user_id)
+        
+        # Extract AI quality analysis
+        ai_suggestions = []
+        ai_quality_data = None
+        if 'ai_analysis' in ai_result and ai_result['ai_analysis']:
+            ai_data = ai_result['ai_analysis']
+            ai_suggestions = ai_data.get('improvements', [])
+            ai_quality_data = {
+                'grammar': ai_data.get('grammar_score', 0),
+                'style': ai_data.get('style_score', 0),
+                'tone': ai_data.get('tone_score', 0),
+                'engagement': ai_data.get('engagement_score', 0),
+                'overall': ai_data.get('overall_ai_score', 0),
+                'strengths': ai_data.get('strengths', [])
+            }
         
         logger.info(f"Email campaign generation complete for user {user_id}")
         
@@ -606,6 +731,8 @@ async def generate_email_campaign(
             quality_metrics=quality_metrics,
             fact_check_results=generation_data['factCheckResults'],
             humanization=generation_data['humanization'],
+            ai_suggestions=ai_suggestions,
+            ai_quality_metrics=ai_quality_data,
             generation_time=generation_data['metadata']['processingTime'],
             model_used=generation_data['metadata']['modelUsed'],
             created_at=datetime.utcnow(),
@@ -738,13 +865,18 @@ async def generate_product_description(
             product_title = request.product_name
             output_dict = {'description': product_content, 'title': product_title}
         
+        quality_score_data = ai_result.get('quality_score', {})
+        
+        # Use REAL quality metrics from quality_scorer
         quality_metrics = {
-            'readabilityScore': 8.8,
-            'originality': 9.0,
-            'grammarScore': 9.5,
-            'factCheckScore': 0.0,
-            'aiDetectionScore': 6.8,
-            'overallQuality': 8.8
+            'readability_score': quality_score_data.get('readability', 0) * 10,
+            'completeness_score': quality_score_data.get('completeness', 0) * 10,
+            'seo_score': quality_score_data.get('seo', 0) * 10,
+            'grammar_score': quality_score_data.get('grammar', 0) * 10,
+            'originality_score': 9.0,  # Placeholder
+            'fact_check_score': 0.0,
+            'ai_detection_score': 6.8,  # Placeholder
+            'overall_score': quality_score_data.get('overall', 0) * 10
         }
         
         generation_data = {
@@ -766,7 +898,7 @@ async def generate_product_description(
             },
             'qualityMetrics': quality_metrics,
             'factCheckResults': {'checked': False, 'claims': [], 'verificationTime': 0},
-            'humanization': {'applied': False, 'level': None, 'beforeScore': 6.8, 'afterScore': 0},
+            'humanization': {'applied': False, 'level': None, 'beforeScore': quality_metrics['ai_detection_score'], 'afterScore': 0},
             'metadata': {
                 'tokensUsed': ai_result['tokensUsed'],
                 'modelUsed': ai_result['model'],
@@ -777,6 +909,21 @@ async def generate_product_description(
         
         generation_id = await firebase_service.save_generation(generation_data)
         await firebase_service.increment_usage(user_id)
+        
+        # Extract AI quality analysis
+        ai_suggestions = []
+        ai_quality_data = None
+        if 'ai_analysis' in ai_result and ai_result['ai_analysis']:
+            ai_data = ai_result['ai_analysis']
+            ai_suggestions = ai_data.get('improvements', [])
+            ai_quality_data = {
+                'grammar': ai_data.get('grammar_score', 0),
+                'style': ai_data.get('style_score', 0),
+                'tone': ai_data.get('tone_score', 0),
+                'engagement': ai_data.get('engagement_score', 0),
+                'overall': ai_data.get('overall_ai_score', 0),
+                'strengths': ai_data.get('strengths', [])
+            }
         
         logger.info(f"Product description generation complete for user {user_id}")
         
@@ -790,6 +937,8 @@ async def generate_product_description(
             quality_metrics=quality_metrics,
             fact_check_results=generation_data['factCheckResults'],
             humanization=generation_data['humanization'],
+            ai_suggestions=ai_suggestions,
+            ai_quality_metrics=ai_quality_data,
             generation_time=generation_data['metadata']['processingTime'],
             model_used=generation_data['metadata']['modelUsed'],
             created_at=datetime.utcnow(),
@@ -905,13 +1054,18 @@ async def generate_ad_copy(
             ad_title = request.product_service
             output_dict = {'body': ad_content, 'headline': ad_title}
         
+        quality_score_data = ai_result.get('quality_score', {})
+        
+        # Use REAL quality metrics from quality_scorer
         quality_metrics = {
-            'readabilityScore': 9.0,
-            'originality': 9.2,
-            'grammarScore': 9.5,
-            'factCheckScore': 0.0,
-            'aiDetectionScore': 6.5,
-            'overallQuality': 9.0
+            'readability_score': quality_score_data.get('readability', 0) * 10,
+            'completeness_score': quality_score_data.get('completeness', 0) * 10,
+            'seo_score': quality_score_data.get('seo', 0) * 10,
+            'grammar_score': quality_score_data.get('grammar', 0) * 10,
+            'originality_score': 9.2,  # Placeholder
+            'fact_check_score': 0.0,
+            'ai_detection_score': 6.5,  # Placeholder
+            'overall_score': quality_score_data.get('overall', 0) * 10
         }
         
         generation_data = {
@@ -932,7 +1086,7 @@ async def generate_ad_copy(
             },
             'qualityMetrics': quality_metrics,
             'factCheckResults': {'checked': False, 'claims': [], 'verificationTime': 0},
-            'humanization': {'applied': False, 'level': None, 'beforeScore': 6.5, 'afterScore': 0},
+            'humanization': {'applied': False, 'level': None, 'beforeScore': quality_metrics['ai_detection_score'], 'afterScore': 0},
             'metadata': {
                 'tokensUsed': ai_result['tokensUsed'],
                 'modelUsed': ai_result['model'],
@@ -943,6 +1097,21 @@ async def generate_ad_copy(
         
         generation_id = await firebase_service.save_generation(generation_data)
         await firebase_service.increment_usage(user_id)
+        
+        # Extract AI quality analysis
+        ai_suggestions = []
+        ai_quality_data = None
+        if 'ai_analysis' in ai_result and ai_result['ai_analysis']:
+            ai_data = ai_result['ai_analysis']
+            ai_suggestions = ai_data.get('improvements', [])
+            ai_quality_data = {
+                'grammar': ai_data.get('grammar_score', 0),
+                'style': ai_data.get('style_score', 0),
+                'tone': ai_data.get('tone_score', 0),
+                'engagement': ai_data.get('engagement_score', 0),
+                'overall': ai_data.get('overall_ai_score', 0),
+                'strengths': ai_data.get('strengths', [])
+            }
         
         logger.info(f"Ad copy generation complete for user {user_id}")
         
@@ -956,6 +1125,8 @@ async def generate_ad_copy(
             quality_metrics=quality_metrics,
             fact_check_results=generation_data['factCheckResults'],
             humanization=generation_data['humanization'],
+            ai_suggestions=ai_suggestions,
+            ai_quality_metrics=ai_quality_data,
             generation_time=generation_data['metadata']['processingTime'],
             model_used=generation_data['metadata']['modelUsed'],
             created_at=datetime.utcnow(),
@@ -1074,13 +1245,18 @@ async def generate_video_script(
             video_title = request.topic
             output_dict = {'script': video_content, 'title': video_title}
         
+        quality_score_data = ai_result.get('quality_score', {})
+        
+        # Use REAL quality metrics from quality_scorer
         quality_metrics = {
-            'readabilityScore': 8.5,
-            'originality': 9.0,
-            'grammarScore': 9.5,
-            'factCheckScore': 0.0,
-            'aiDetectionScore': 7.0,
-            'overallQuality': 8.8
+            'readability_score': quality_score_data.get('readability', 0) * 10,
+            'completeness_score': quality_score_data.get('completeness', 0) * 10,
+            'seo_score': quality_score_data.get('seo', 0) * 10,
+            'grammar_score': quality_score_data.get('grammar', 0) * 10,
+            'originality_score': 9.0,  # Placeholder
+            'fact_check_score': 0.0,
+            'ai_detection_score': 7.0,  # Placeholder
+            'overall_score': quality_score_data.get('overall', 0) * 10
         }
         
         generation_data = {
@@ -1104,7 +1280,7 @@ async def generate_video_script(
             },
             'qualityMetrics': quality_metrics,
             'factCheckResults': {'checked': False, 'claims': [], 'verificationTime': 0},
-            'humanization': {'applied': False, 'level': None, 'beforeScore': 7.0, 'afterScore': 0},
+            'humanization': {'applied': False, 'level': None, 'beforeScore': quality_metrics['ai_detection_score'], 'afterScore': 0},
             'metadata': {
                 'tokensUsed': ai_result['tokensUsed'],
                 'modelUsed': ai_result['model'],
@@ -1115,6 +1291,21 @@ async def generate_video_script(
         
         generation_id = await firebase_service.save_generation(generation_data)
         await firebase_service.increment_usage(user_id)
+        
+        # Extract AI quality analysis
+        ai_suggestions = []
+        ai_quality_data = None
+        if 'ai_analysis' in ai_result and ai_result['ai_analysis']:
+            ai_data = ai_result['ai_analysis']
+            ai_suggestions = ai_data.get('improvements', [])
+            ai_quality_data = {
+                'grammar': ai_data.get('grammar_score', 0),
+                'style': ai_data.get('style_score', 0),
+                'tone': ai_data.get('tone_score', 0),
+                'engagement': ai_data.get('engagement_score', 0),
+                'overall': ai_data.get('overall_ai_score', 0),
+                'strengths': ai_data.get('strengths', [])
+            }
         
         logger.info(f"Video script generation complete for user {user_id}")
         
@@ -1127,6 +1318,8 @@ async def generate_video_script(
             quality_metrics=quality_metrics,
             fact_check_results=generation_data['factCheckResults'],
             humanization=generation_data['humanization'],
+            ai_suggestions=ai_suggestions,
+            ai_quality_metrics=ai_quality_data,
             generation_time=generation_data['metadata']['processingTime'],
             model_used=generation_data['metadata']['modelUsed'],
             created_at=datetime.utcnow(),

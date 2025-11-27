@@ -156,10 +156,25 @@ class BeforeAfterComparison extends StatelessWidget {
           ),
           const Gap(12),
 
-          // Content
+          // Content with better formatting
           Container(
             constraints: const BoxConstraints(maxHeight: 300, minHeight: 150),
-            child: SingleChildScrollView(child: BodyText(content)),
+            decoration: BoxDecoration(
+              color: AppTheme.bgPrimary,
+              borderRadius: AppTheme.borderRadiusMD,
+              border: Border.all(color: AppTheme.border.withOpacity(0.5)),
+            ),
+            padding: const EdgeInsets.all(16),
+            child: SingleChildScrollView(
+              child: SelectableText(
+                content,
+                style: const TextStyle(
+                  fontSize: 14,
+                  height: 1.8,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ),
           ),
           const Gap(12),
 

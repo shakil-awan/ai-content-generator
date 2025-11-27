@@ -46,10 +46,32 @@ class HumanizationService:
         - Writer.com AI Detector
         
         For now, we use AI itself to detect AI patterns
+        Uses Gemini first (more quota), falls back to OpenAI if needed
         """
         try:
-            logger.info("Starting AI content detection...")
-            prompt = f"""Analyze this content and rate how AI-generated it appears on a scale of 0-100.
+            logger.info("Starting AI content detection with Gemini...")
+            # Try Gemini first since it has more quota
+            return await self._detect_with_gemini(content)
+            
+        except Exception as e:
+            logger.warning(f"Gemini detection failed: {e}, trying OpenAI fallback...")
+            try:
+                return await self._detect_with_openai(content)
+            except Exception as openai_error:
+                logger.error(f"OpenAI fallback also failed: {openai_error}")
+                # Return neutral score on complete failure
+                return {
+                    'aiScore': 50,
+                    'confidence': 0,
+                    'indicators': [],
+                    'reasoning': f'Detection failed: {str(e)}',
+                    'detectionApi': 'error',
+                    'tokensUsed': 0
+                }
+    
+    async def _detect_with_openai(self, content: str) -> Dict[str, Any]:
+        """OpenAI-based detection (fallback when Gemini fails)"""
+        prompt = f"""Analyze this content and rate how AI-generated it appears on a scale of 0-100.
 
 Content:
 {content}
@@ -70,69 +92,33 @@ Return ONLY a JSON object:
     "reasoning": "brief explanation"
 }}"""
 
-            # Add timeout to prevent hanging
-            response = await asyncio.wait_for(
-                self.openai_client.chat.completions.create(
-                    model=self.openai_model,
-                    messages=[
-                        {"role": "system", "content": "You are an AI content detection expert. Always return valid JSON."},
-                        {"role": "user", "content": prompt}
-                    ],
-                    temperature=0.3,  # Lower temp for consistent detection
-                    max_tokens=500,
-                    timeout=30.0  # 30 second timeout per request
-                ),
-                timeout=35.0  # 35 second overall timeout
-            )
-            
-            content_text = response.choices[0].message.content
-            logger.info(f"Detection API response received: {len(content_text)} chars")
-            result = json.loads(content_text)
-            
-            return {
-                'aiScore': result.get('aiScore', 50),
-                'confidence': result.get('confidence', 70),
-                'indicators': result.get('indicators', []),
-                'reasoning': result.get('reasoning', 'AI pattern analysis completed'),
-                'detectionApi': 'openai-self-detection',
-                'tokensUsed': response.usage.total_tokens
-            }
-            
-        except asyncio.TimeoutError:
-            logger.warning("OpenAI detection timed out, trying Gemini fallback...")
-            try:
-                return await self._detect_with_gemini(content)
-            except Exception as gemini_error:
-                logger.error(f"Gemini fallback also failed: {gemini_error}")
-                return {
-                    'aiScore': 75,
-                    'confidence': 0,
-                    'indicators': ['Detection timeout - using estimated score'],
-                    'reasoning': 'API timeout - returning estimated AI score',
-                    'detectionApi': 'timeout-fallback',
-                    'tokensUsed': 0
-                }
-        except Exception as e:
-            error_msg = str(e).lower()
-            # Check if it's a rate limit or quota error
-            if 'rate_limit' in error_msg or 'quota' in error_msg or '429' in error_msg:
-                logger.warning(f"OpenAI rate limit hit: {e}, trying Gemini fallback...")
-                try:
-                    return await self._detect_with_gemini(content)
-                except Exception as gemini_error:
-                    logger.error(f"Gemini fallback also failed: {gemini_error}")
-            else:
-                logger.error(f"Error detecting AI content: {e}", exc_info=True)
-            
-            # Return neutral score on error
-            return {
-                'aiScore': 50,
-                'confidence': 0,
-                'indicators': [],
-                'reasoning': f'Detection failed: {str(e)}',
-                'detectionApi': 'error',
-                'tokensUsed': 0
-            }
+        # Add timeout to prevent hanging
+        response = await asyncio.wait_for(
+            self.openai_client.chat.completions.create(
+                model=self.openai_model,
+                messages=[
+                    {"role": "system", "content": "You are an AI content detection expert. Always return valid JSON."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.3,  # Lower temp for consistent detection
+                max_tokens=500,
+                timeout=30.0  # 30 second timeout per request
+            ),
+            timeout=35.0  # 35 second overall timeout
+        )
+        
+        content_text = response.choices[0].message.content
+        logger.info(f"OpenAI detection response received: {len(content_text)} chars")
+        result = json.loads(content_text)
+        
+        return {
+            'aiScore': result.get('aiScore', 50),
+            'confidence': result.get('confidence', 70),
+            'indicators': result.get('indicators', []),
+            'reasoning': result.get('reasoning', 'AI pattern analysis completed'),
+            'detectionApi': 'openai',
+            'tokensUsed': response.usage.total_tokens
+        }
     
     async def _detect_with_gemini(self, content: str) -> Dict[str, Any]:
         """Fallback detection using Gemini when OpenAI fails"""
@@ -177,7 +163,7 @@ Return ONLY a JSON object:
                 'confidence': result.get('confidence', 70),
                 'indicators': result.get('indicators', []),
                 'reasoning': result.get('reasoning', 'AI pattern analysis completed'),
-                'detectionApi': 'gemini-fallback',
+                'detectionApi': 'gemini',
                 'tokensUsed': 0  # Gemini doesn't provide token count in same way
             }
         except Exception as e:
@@ -261,23 +247,35 @@ Requirements:
 Return ONLY the humanized content, no explanations."""
 
             logger.info(f"Starting humanization with level: {level}")
-            response = await asyncio.wait_for(
-                self.openai_client.chat.completions.create(
-                    model=self.openai_model,
-                    messages=[
-                        {"role": "system", "content": "You are an expert at making AI content sound naturally human-written."},
-                        {"role": "user", "content": prompt}
-                    ],
-                    temperature=0.9,  # Higher temp for more natural variation
-                    max_tokens=4000,
-                    timeout=60.0  # 60 second timeout for longer content
-                ),
-                timeout=65.0  # 65 second overall timeout
-            )
             
-            humanized_content = response.choices[0].message.content.strip()
-            tokens_used = response.usage.total_tokens
-            logger.info(f"Humanization complete: {len(humanized_content)} chars, {tokens_used} tokens")
+            # Try Gemini first (more quota available)
+            humanization_model = None
+            try:
+                logger.info("Using Gemini for humanization...")
+                humanized_content = await self._humanize_with_gemini(content, level, instructions, fact_instruction, content_type)
+                tokens_used = 0  # Gemini doesn't provide token count
+                humanization_model = 'gemini-2.0-flash-exp'
+                logger.info(f"Gemini humanization complete: {len(humanized_content)} chars")
+            except Exception as gemini_error:
+                logger.warning(f"Gemini humanization failed: {gemini_error}, trying OpenAI fallback...")
+                response = await asyncio.wait_for(
+                    self.openai_client.chat.completions.create(
+                        model=self.openai_model,
+                        messages=[
+                            {"role": "system", "content": "You are an expert at making AI content sound naturally human-written."},
+                            {"role": "user", "content": prompt}
+                        ],
+                        temperature=0.9,  # Higher temp for more natural variation
+                        max_tokens=4000,
+                        timeout=60.0  # 60 second timeout for longer content
+                    ),
+                    timeout=65.0  # 65 second overall timeout
+                )
+                
+                humanized_content = response.choices[0].message.content.strip()
+                tokens_used = response.usage.total_tokens
+                humanization_model = self.openai_model
+                logger.info(f"OpenAI humanization complete: {len(humanized_content)} chars, {tokens_used} tokens")
             
             # Detect AI score after humanization
             detection_after = await self.detect_ai_content(humanized_content)
@@ -286,7 +284,11 @@ Return ONLY the humanized content, no explanations."""
             processing_time = time.time() - start_time
             improvement = ai_score_before - ai_score_after
             
+            # Use the detection API from the detection results
+            detection_api = detection_after.get('detectionApi', 'gemini')
+            
             logger.info(f"Humanization complete: {ai_score_before} → {ai_score_after} (improvement: {improvement})")
+            logger.info(f"Models used - Humanization: {humanization_model}, Detection: {detection_api}")
             
             return {
                 'humanizedContent': humanized_content,
@@ -295,7 +297,8 @@ Return ONLY the humanized content, no explanations."""
                 'improvement': improvement,
                 'improvementPercentage': (improvement / ai_score_before * 100) if ai_score_before > 0 else 0,
                 'level': level,
-                'detectionApi': 'openai-self-detection',
+                'detectionApi': detection_api,
+                'humanizationModel': humanization_model,
                 'processingTime': processing_time,
                 'tokensUsed': tokens_used,
                 'beforeAnalysis': {
@@ -311,7 +314,7 @@ Return ONLY the humanized content, no explanations."""
         except asyncio.TimeoutError:
             logger.warning("OpenAI humanization timed out, trying Gemini fallback...")
             try:
-                return await self._humanize_with_gemini(content, content_type, level, preserve_facts, ai_score_before, detection_before, start_time)
+                return await self._humanize_with_gemini_full(content, content_type, level, preserve_facts, ai_score_before, detection_before, start_time)
             except Exception as gemini_error:
                 logger.error(f"Gemini humanization fallback failed: {gemini_error}")
                 raise Exception("Humanization timed out on both OpenAI and Gemini")
@@ -321,7 +324,7 @@ Return ONLY the humanized content, no explanations."""
             if 'rate_limit' in error_msg or 'quota' in error_msg or '429' in error_msg:
                 logger.warning(f"OpenAI rate limit hit: {e}, trying Gemini fallback...")
                 try:
-                    return await self._humanize_with_gemini(content, content_type, level, preserve_facts, ai_score_before, detection_before, start_time)
+                    return await self._humanize_with_gemini_full(content, content_type, level, preserve_facts, ai_score_before, detection_before, start_time)
                 except Exception as gemini_error:
                     logger.error(f"Gemini humanization fallback failed: {gemini_error}")
                     raise Exception(f"OpenAI rate limit exceeded and Gemini fallback failed: {gemini_error}")
@@ -332,6 +335,39 @@ Return ONLY the humanized content, no explanations."""
     async def _humanize_with_gemini(
         self,
         content: str,
+        level: str,
+        instructions: str,
+        fact_instruction: str,
+        content_type: str
+    ) -> str:
+        """Humanize content using Gemini (primary method)"""
+        prompt = f"""Rewrite this {content_type} content to sound more human-written while maintaining its core message.
+
+{instructions}
+
+{fact_instruction}
+
+Original Content:
+{content}
+
+Requirements:
+- Keep the same length approximately
+- Maintain the key points and message
+- Make it sound like a real person wrote it
+- Remove obvious AI patterns
+- Add natural imperfections
+
+Return ONLY the humanized content, no explanations."""
+
+        response = await asyncio.to_thread(
+            self.gemini_model.generate_content, prompt
+        )
+        
+        return response.text.strip()
+    
+    async def _humanize_with_gemini_full(
+        self,
+        content: str,
         content_type: str,
         level: str,
         preserve_facts: bool,
@@ -339,9 +375,9 @@ Return ONLY the humanized content, no explanations."""
         detection_before: Dict[str, Any],
         start_time: float
     ) -> Dict[str, Any]:
-        """Fallback humanization using Gemini when OpenAI fails"""
+        """Full Gemini humanization with detection (legacy fallback method)"""
         try:
-            logger.info("Using Gemini for humanization...")
+            logger.info("Using Gemini for full humanization...")
             
             level_instructions = {
                 'light': """Make minimal changes to sound more natural:
@@ -406,7 +442,11 @@ Return ONLY the humanized content, no explanations."""
             processing_time = time.time() - start_time
             improvement = ai_score_before - ai_score_after
             
+            # Use the detection API from the detection results
+            detection_api = detection_after.get('detectionApi', 'gemini')
+            
             logger.info(f"Gemini humanization result: {ai_score_before} → {ai_score_after} (improvement: {improvement})")
+            logger.info(f"Models used - Humanization: gemini-2.0-flash-exp, Detection: {detection_api}")
             
             return {
                 'humanizedContent': humanized_content,
@@ -415,7 +455,8 @@ Return ONLY the humanized content, no explanations."""
                 'improvement': improvement,
                 'improvementPercentage': (improvement / ai_score_before * 100) if ai_score_before > 0 else 0,
                 'level': level,
-                'detectionApi': 'gemini-fallback',
+                'detectionApi': detection_api,
+                'humanizationModel': 'gemini-2.0-flash-exp',
                 'processingTime': processing_time,
                 'tokensUsed': 0,  # Gemini doesn't provide token count in same way
                 'beforeAnalysis': {

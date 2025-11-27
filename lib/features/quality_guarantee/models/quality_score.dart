@@ -8,6 +8,9 @@ class QualityScore {
   final double completeness;
   final double seo;
   final double grammar;
+  final String? grade; // API provides grade directly
+  final int? percentage; // API provides percentage directly
+  final bool? shouldRegenerate; // API tells us if quality is too low
   final QualityDetails? details;
 
   QualityScore({
@@ -16,11 +19,15 @@ class QualityScore {
     required this.completeness,
     required this.seo,
     required this.grammar,
+    this.grade,
+    this.percentage,
+    this.shouldRegenerate,
     this.details,
   });
 
-  /// Get letter grade (A+, A, B, C, D)
-  String get grade {
+  /// Get letter grade (computed or from API)
+  String get displayGrade {
+    if (grade != null) return grade!;
     if (overall >= 0.95) return 'A+';
     if (overall >= 0.85) return 'A';
     if (overall >= 0.70) return 'B';
@@ -28,8 +35,8 @@ class QualityScore {
     return 'D';
   }
 
-  /// Get percentage (0-100)
-  int get percentage => (overall * 100).toInt();
+  /// Get percentage (computed or from API)
+  int get displayPercentage => percentage ?? (overall * 100).toInt();
 
   /// Get grade color
   Color get gradeColor {
@@ -56,7 +63,7 @@ class QualityScore {
     return 'Needs Improvement';
   }
 
-  /// Create from JSON
+  /// Create from JSON (matches API response)
   factory QualityScore.fromJson(Map<String, dynamic> json) {
     return QualityScore(
       overall: (json['overall'] ?? 0.0).toDouble(),
@@ -64,6 +71,9 @@ class QualityScore {
       completeness: (json['completeness'] ?? 0.0).toDouble(),
       seo: (json['seo'] ?? 0.0).toDouble(),
       grammar: (json['grammar'] ?? 0.0).toDouble(),
+      grade: json['grade'] as String?,
+      percentage: json['percentage'] as int?,
+      shouldRegenerate: json['should_regenerate'] as bool?,
       details: json['details'] != null
           ? QualityDetails.fromJson(json['details'] as Map<String, dynamic>)
           : null,
@@ -78,6 +88,9 @@ class QualityScore {
       'completeness': completeness,
       'seo': seo,
       'grammar': grammar,
+      if (grade != null) 'grade': grade,
+      if (percentage != null) 'percentage': percentage,
+      if (shouldRegenerate != null) 'should_regenerate': shouldRegenerate,
       if (details != null) 'details': details!.toJson(),
     };
   }
@@ -90,32 +103,44 @@ class QualityScore {
       completeness: 0.0,
       seo: 0.0,
       grammar: 0.0,
+      grade: 'N/A',
+      percentage: 0,
+      shouldRegenerate: false,
     );
   }
 }
 
 /// Quality Details Model
-/// Additional metrics about content quality
+/// Additional metrics about content quality (matches API response)
 class QualityDetails {
   final int wordCount;
+  final int? sentenceCount; // Added from API
+  final double? avgSentenceLength; // Added from API
+  final int? paragraphCount; // Added from API
   final double? fleschKincaidScore;
   final double? keywordDensity;
   final int? headingCount;
 
   QualityDetails({
     required this.wordCount,
+    this.sentenceCount,
+    this.avgSentenceLength,
+    this.paragraphCount,
     this.fleschKincaidScore,
     this.keywordDensity,
     this.headingCount,
   });
 
-  /// Create from JSON
+  /// Create from JSON (matches API response)
   factory QualityDetails.fromJson(Map<String, dynamic> json) {
     return QualityDetails(
       wordCount: json['word_count'] ?? 0,
-      fleschKincaidScore: json['flesch_kincaid_score']?.toDouble(),
-      keywordDensity: json['keyword_density']?.toDouble(),
-      headingCount: json['heading_count'],
+      sentenceCount: json['sentence_count'] as int?,
+      avgSentenceLength: (json['avg_sentence_length'] as num?)?.toDouble(),
+      paragraphCount: json['paragraph_count'] as int?,
+      fleschKincaidScore: (json['flesch_kincaid_score'] as num?)?.toDouble(),
+      keywordDensity: (json['keyword_density'] as num?)?.toDouble(),
+      headingCount: json['heading_count'] as int?,
     );
   }
 
@@ -123,6 +148,9 @@ class QualityDetails {
   Map<String, dynamic> toJson() {
     return {
       'word_count': wordCount,
+      if (sentenceCount != null) 'sentence_count': sentenceCount,
+      if (avgSentenceLength != null) 'avg_sentence_length': avgSentenceLength,
+      if (paragraphCount != null) 'paragraph_count': paragraphCount,
       if (fleschKincaidScore != null)
         'flesch_kincaid_score': fleschKincaidScore,
       if (keywordDensity != null) 'keyword_density': keywordDensity,

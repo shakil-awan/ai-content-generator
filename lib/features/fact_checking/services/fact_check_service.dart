@@ -1,3 +1,5 @@
+import 'dart:developer' as developer;
+
 import '../models/fact_check_claim.dart';
 import '../models/fact_check_results.dart';
 
@@ -61,7 +63,7 @@ class FactCheckService {
         verificationTime: 12.4,
       );
     } catch (e) {
-      print('Error in fact-check service: $e');
+      developer.log('Error in fact-check service: $e', name: 'FactCheckService');
       rethrow;
     }
   }
@@ -83,11 +85,12 @@ class FactCheckService {
       //   }),
       // );
 
-      print(
+      developer.log(
         'Mock: Saving settings - autoFactCheck: $autoFactCheck, threshold: $confidenceThreshold',
+        name: 'FactCheckService',
       );
     } catch (e) {
-      print('Error saving settings: $e');
+      developer.log('Error saving settings: $e', name: 'FactCheckService');
       rethrow;
     }
   }
@@ -108,7 +111,7 @@ class FactCheckService {
       // Mock data
       return {'autoFactCheck': false, 'confidenceThreshold': 70};
     } catch (e) {
-      print('Error loading settings: $e');
+      developer.log('Error loading settings: $e', name: 'FactCheckService');
       rethrow;
     }
   }
@@ -129,7 +132,7 @@ class FactCheckService {
       // Mock data
       return {'used': 7, 'limit': 10, 'tier': 'hobby'};
     } catch (e) {
-      print('Error getting quota: $e');
+      developer.log('Error getting quota: $e', name: 'FactCheckService');
       rethrow;
     }
   }
@@ -145,7 +148,7 @@ class FactCheckService {
       }
       return null;
     } catch (e) {
-      print('Error extracting fact-check results: $e');
+      developer.log('Error extracting fact-check results: $e', name: 'FactCheckService');
       return null;
     }
   }

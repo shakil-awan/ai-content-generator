@@ -1,16 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
+import 'package:get/get.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/custom_buttons.dart';
 import '../../../shared/widgets/custom_text.dart';
 import '../models/fact_check_results.dart';
-import 'claim_card.dart';
+import 'enhanced_claim_card.dart';
 import 'fact_check_loading.dart';
+
+/// Fact-Check Results Panel Controller
+class FactCheckResultsPanelController extends GetxController {
+  final isExpanded = false.obs;
+
+  void toggleExpanded() => isExpanded.value = !isExpanded.value;
+}
 
 /// Fact-Check Results Panel Widget
 /// Displays fact-check results after content generation
-class FactCheckResultsPanel extends StatefulWidget {
+class FactCheckResultsPanel extends StatelessWidget {
   final FactCheckResults? results;
   final bool isLoading;
   final String? errorMessage;
@@ -31,39 +39,34 @@ class FactCheckResultsPanel extends StatefulWidget {
   });
 
   @override
-  State<FactCheckResultsPanel> createState() => _FactCheckResultsPanelState();
-}
-
-class _FactCheckResultsPanelState extends State<FactCheckResultsPanel> {
-  bool _isExpanded = false;
-
-  @override
   Widget build(BuildContext context) {
+    final controller = Get.put(FactCheckResultsPanelController());
+
     // Loading state
-    if (widget.isLoading) {
+    if (isLoading) {
       return FactCheckLoadingIndicator(
-        currentClaim: widget.currentClaim,
-        totalClaims: widget.totalClaims,
+        currentClaim: currentClaim,
+        totalClaims: totalClaims,
       );
     }
 
     // Error state
-    if (widget.errorMessage != null && widget.errorMessage!.isNotEmpty) {
+    if (errorMessage != null && errorMessage!.isNotEmpty) {
       return _buildErrorState();
     }
 
     // No results
-    if (widget.results == null) {
+    if (results == null) {
       return const SizedBox.shrink();
     }
 
     // Empty state (no claims found)
-    if (widget.results!.claims.isEmpty) {
+    if (results!.claims.isEmpty) {
       return _buildEmptyState();
     }
 
     // Success state with results
-    return _buildSuccessState();
+    return _buildSuccessState(controller);
   }
 
   /// Build error state
@@ -80,40 +83,29 @@ class _FactCheckResultsPanelState extends State<FactCheckResultsPanel> {
         children: [
           Row(
             children: [
-              Icon(
-                Icons.warning,
-                color: AppTheme.error,
-                size: 20,
-              ),
+              Icon(Icons.warning, color: AppTheme.error, size: 20),
               const Gap(8),
-              H3(
-                'Fact-Check Failed',
-                color: AppTheme.error,
-              ),
+              H3('Fact-Check Failed', color: AppTheme.error),
             ],
           ),
           const Gap(8),
           BodyText(
-            widget.errorMessage ?? 'Unable to verify claims',
+            errorMessage ?? 'Unable to verify claims',
             color: AppTheme.textSecondary,
           ),
           const Gap(16),
           Row(
             children: [
-              if (widget.onRetry != null)
+              if (onRetry != null)
                 Expanded(
-                  child: SecondaryButton(
-                    text: 'Retry',
-                    onPressed: widget.onRetry,
-                  ),
+                  child: SecondaryButton(text: 'Retry', onPressed: onRetry),
                 ),
-              if (widget.onRetry != null && widget.onSkip != null)
-                const Gap(8),
-              if (widget.onSkip != null)
+              if (onRetry != null && onSkip != null) const Gap(8),
+              if (onSkip != null)
                 Expanded(
                   child: SecondaryButton(
                     text: 'Skip Fact-Check',
-                    onPressed: widget.onSkip,
+                    onPressed: onSkip,
                   ),
                 ),
             ],
@@ -137,11 +129,7 @@ class _FactCheckResultsPanelState extends State<FactCheckResultsPanel> {
         children: [
           Row(
             children: [
-              Icon(
-                Icons.check_circle,
-                color: AppTheme.success,
-                size: 20,
-              ),
+              Icon(Icons.check_circle, color: AppTheme.success, size: 20),
               const Gap(8),
               H3('Fact-Check Complete'),
             ],
@@ -162,8 +150,8 @@ class _FactCheckResultsPanelState extends State<FactCheckResultsPanel> {
   }
 
   /// Build success state with results
-  Widget _buildSuccessState() {
-    final results = widget.results!;
+  Widget _buildSuccessState(FactCheckResultsPanelController controller) {
+    final resultsData = results!;
 
     return Container(
       decoration: BoxDecoration(
@@ -175,11 +163,7 @@ class _FactCheckResultsPanelState extends State<FactCheckResultsPanel> {
         children: [
           // Header (always visible)
           InkWell(
-            onTap: () {
-              setState(() {
-                _isExpanded = !_isExpanded;
-              });
-            },
+            onTap: controller.toggleExpanded,
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -196,12 +180,16 @@ class _FactCheckResultsPanelState extends State<FactCheckResultsPanel> {
                       const Gap(8),
                       Expanded(
                         child: H3(
-                          'Fact-Check Complete (${results.totalClaims} claim${results.totalClaims != 1 ? 's' : ''} verified)',
+                          'Fact-Check Complete (${resultsData.totalClaims} claim${resultsData.totalClaims != 1 ? 's' : ''} verified)',
                         ),
                       ),
-                      Icon(
-                        _isExpanded ? Icons.expand_less : Icons.expand_more,
-                        color: AppTheme.textSecondary,
+                      Obx(
+                        () => Icon(
+                          controller.isExpanded.value
+                              ? Icons.expand_less
+                              : Icons.expand_more,
+                          color: AppTheme.textSecondary,
+                        ),
                       ),
                     ],
                   ),
@@ -209,26 +197,62 @@ class _FactCheckResultsPanelState extends State<FactCheckResultsPanel> {
                   const Gap(8),
 
                   // Summary stats
-                  BodyTextSmall(
-                    'Verification time: ${results.formattedVerificationTime}',
-                    color: AppTheme.textSecondary,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: BodyTextSmall(
+                          'Verification time: ${resultsData.formattedVerificationTime}',
+                          color: AppTheme.textSecondary,
+                        ),
+                      ),
+                      if (resultsData.totalSearchesUsed > 0)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE3F2FD),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.search,
+                                size: 12,
+                                color: Color(0xFF1E88E5),
+                              ),
+                              const Gap(4),
+                              BodyTextSmall(
+                                '${resultsData.totalSearchesUsed} searches',
+                                color: const Color(0xFF1E88E5),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
                   ),
 
                   const Gap(4),
 
                   // Breakdown
                   BodyTextSmall(
-                    '✓ ${results.verifiedCount} verified  •  ⚠ ${results.partiallyVerifiedCount} partial  •  ✗ ${results.unverifiedCount} unverified',
+                    '✓ ${resultsData.verifiedCount} verified  •  ⚠ ${resultsData.partiallyVerifiedCount} partial  •  ✗ ${resultsData.unverifiedCount} unverified',
                     color: AppTheme.textSecondary,
                   ),
 
                   const Gap(12),
 
                   // View details button
-                  BodyText(
-                    _isExpanded ? '▲ Hide Details' : '▼ View Details',
-                    color: AppTheme.primary,
-                    fontWeight: FontWeight.w600,
+                  Obx(
+                    () => BodyText(
+                      controller.isExpanded.value
+                          ? '▲ Hide Details'
+                          : '▼ View Details',
+                      color: AppTheme.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ],
               ),
@@ -236,27 +260,55 @@ class _FactCheckResultsPanelState extends State<FactCheckResultsPanel> {
           ),
 
           // Expanded content (claims list)
-          if (_isExpanded) ...[
-            const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: results.claims.map((claim) {
-                  return ClaimCard(
-                    claim: claim,
-                    onRemove: () {
-                      // TODO: Implement remove claim
-                      print('Remove claim: ${claim.claim}');
-                    },
-                    onManualVerify: () {
-                      // TODO: Implement manual verification
-                      print('Manually verify: ${claim.claim}');
-                    },
-                  );
-                }).toList(),
-              ),
-            ),
-          ],
+          Obx(
+            () => controller.isExpanded.value
+                ? Column(
+                    children: [
+                      const Divider(height: 1),
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          children: [
+                            ...resultsData.claims.asMap().entries.map((entry) {
+                              return EnhancedClaimCard(
+                                claim: entry.value,
+                                claimNumber: entry.key + 1,
+                              );
+                            }),
+                            // Google Search API Transparency Footer
+                            if (resultsData.totalSearchesUsed > 0) ...[
+                              const Gap(8),
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF5F5F5),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.info_outline,
+                                      size: 14,
+                                      color: Color(0xFF757575),
+                                    ),
+                                    const Gap(8),
+                                    Expanded(
+                                      child: BodyTextSmall(
+                                        'Verified using ${resultsData.totalSearchesUsed} Google Custom Search API queries (100 free/day)',
+                                        color: const Color(0xFF757575),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  )
+                : const SizedBox.shrink(),
+          ),
         ],
       ),
     );

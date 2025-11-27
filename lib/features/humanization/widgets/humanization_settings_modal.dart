@@ -1,13 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
+import 'package:get/get.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/custom_buttons.dart';
 import '../../../shared/widgets/custom_text.dart';
 
+/// Humanization Settings Modal Controller
+class HumanizationSettingsController extends GetxController {
+  late final Rx<String> selectedLevel;
+  late final RxBool preserveFacts;
+
+  HumanizationSettingsController({
+    String initialLevel = 'balanced',
+    bool initialPreserveFacts = true,
+  }) {
+    selectedLevel = initialLevel.obs;
+    preserveFacts = initialPreserveFacts.obs;
+  }
+
+  void setLevel(String level) => selectedLevel.value = level;
+  void togglePreserveFacts(bool? value) => preserveFacts.value = value ?? true;
+}
+
 /// Humanization Settings Modal Widget
 /// Select humanization level and options before processing
-class HumanizationSettingsModal extends StatefulWidget {
+class HumanizationSettingsModal extends StatelessWidget {
   final Function(String level, bool preserveFacts) onHumanize;
   final String initialLevel;
   final bool initialPreserveFacts;
@@ -20,23 +38,14 @@ class HumanizationSettingsModal extends StatefulWidget {
   });
 
   @override
-  State<HumanizationSettingsModal> createState() =>
-      _HumanizationSettingsModalState();
-}
-
-class _HumanizationSettingsModalState extends State<HumanizationSettingsModal> {
-  late String _selectedLevel;
-  late bool _preserveFacts;
-
-  @override
-  void initState() {
-    super.initState();
-    _selectedLevel = widget.initialLevel;
-    _preserveFacts = widget.initialPreserveFacts;
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final controller = Get.put(
+      HumanizationSettingsController(
+        initialLevel: initialLevel,
+        initialPreserveFacts: initialPreserveFacts,
+      ),
+    );
+
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: AppTheme.borderRadiusLG),
       child: Container(
@@ -65,20 +74,30 @@ class _HumanizationSettingsModalState extends State<HumanizationSettingsModal> {
             const BodyTextLarge('Humanization Level'),
             const Gap(12),
 
-            _buildLevelOption('light', 'Light', 'Minimal changes'),
-            const Gap(8),
-
-            _buildLevelOption(
-              'balanced',
-              'Balanced',
-              'Moderate rewrite (Recommended)',
-            ),
-            const Gap(8),
-
-            _buildLevelOption(
-              'aggressive',
-              'Aggressive',
-              'Maximum humanization',
+            Obx(
+              () => RadioGroup<String>(
+                groupValue: controller.selectedLevel.value,
+                onChanged: (String? newValue) {
+                  controller.setLevel(newValue ?? 'balanced');
+                },
+                child: Column(
+                  children: [
+                    _buildLevelOption('light', 'Light', 'Minimal changes'),
+                    const Gap(8),
+                    _buildLevelOption(
+                      'balanced',
+                      'Balanced',
+                      'Moderate rewrite (Recommended)',
+                    ),
+                    const Gap(8),
+                    _buildLevelOption(
+                      'aggressive',
+                      'Aggressive',
+                      'Maximum humanization',
+                    ),
+                  ],
+                ),
+              ),
             ),
 
             const Gap(24),
@@ -87,33 +106,31 @@ class _HumanizationSettingsModalState extends State<HumanizationSettingsModal> {
             const BodyTextLarge('Options'),
             const Gap(12),
 
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Checkbox(
-                  value: _preserveFacts,
-                  onChanged: (value) {
-                    setState(() {
-                      _preserveFacts = value ?? true;
-                    });
-                  },
-                  activeColor: AppTheme.primary,
-                ),
-                const Gap(8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const BodyText('Preserve Facts'),
-                      const Gap(4),
-                      CaptionText(
-                        'Maintain factual accuracy while humanizing',
-                        color: AppTheme.textSecondary,
-                      ),
-                    ],
+            Obx(
+              () => Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Checkbox(
+                    value: controller.preserveFacts.value,
+                    onChanged: controller.togglePreserveFacts,
+                    activeColor: AppTheme.primary,
                   ),
-                ),
-              ],
+                  const Gap(8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const BodyText('Preserve Facts'),
+                        const Gap(4),
+                        CaptionText(
+                          'Maintain factual accuracy while humanizing',
+                          color: AppTheme.textSecondary,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
 
             const Gap(24),
@@ -130,7 +147,10 @@ class _HumanizationSettingsModalState extends State<HumanizationSettingsModal> {
                 PrimaryButton(
                   text: 'Humanize Now',
                   onPressed: () {
-                    widget.onHumanize(_selectedLevel, _preserveFacts);
+                    onHumanize(
+                      controller.selectedLevel.value,
+                      controller.preserveFacts.value,
+                    );
                   },
                 ),
               ],
@@ -142,14 +162,11 @@ class _HumanizationSettingsModalState extends State<HumanizationSettingsModal> {
   }
 
   Widget _buildLevelOption(String value, String label, String description) {
-    final isSelected = _selectedLevel == value;
+    final controller = Get.find<HumanizationSettingsController>();
+    final isSelected = controller.selectedLevel.value == value;
 
     return InkWell(
-      onTap: () {
-        setState(() {
-          _selectedLevel = value;
-        });
-      },
+      onTap: () => controller.setLevel(value),
       borderRadius: AppTheme.borderRadiusMD,
       child: Container(
         padding: const EdgeInsets.all(12),
@@ -159,20 +176,11 @@ class _HumanizationSettingsModalState extends State<HumanizationSettingsModal> {
             width: isSelected ? 2 : 1,
           ),
           borderRadius: AppTheme.borderRadiusMD,
-          color: isSelected ? AppTheme.primary.withOpacity(0.05) : null,
+          color: isSelected ? AppTheme.primary.withValues(alpha: 0.05) : null,
         ),
         child: Row(
           children: [
-            Radio<String>(
-              value: value,
-              groupValue: _selectedLevel,
-              onChanged: (newValue) {
-                setState(() {
-                  _selectedLevel = newValue ?? 'balanced';
-                });
-              },
-              activeColor: AppTheme.primary,
-            ),
+            Radio<String>(value: value, activeColor: AppTheme.primary),
             const Gap(12),
             Expanded(
               child: Column(

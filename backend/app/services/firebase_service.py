@@ -259,12 +259,12 @@ class FirebaseService:
                     'customSettings': generation_data.get('settings', {}).get('customSettings', {})
                 },
                 'qualityMetrics': {
-                    'readabilityScore': generation_data.get('qualityMetrics', {}).get('readabilityScore', 0),
-                    'originality': generation_data.get('qualityMetrics', {}).get('originality', 0),
-                    'grammarScore': generation_data.get('qualityMetrics', {}).get('grammarScore', 0),
-                    'factCheckScore': generation_data.get('qualityMetrics', {}).get('factCheckScore', 0),
-                    'aiDetectionScore': generation_data.get('qualityMetrics', {}).get('aiDetectionScore', 0),
-                    'overallQuality': generation_data.get('qualityMetrics', {}).get('overallQuality', 0)
+                    'readability_score': generation_data.get('qualityMetrics', {}).get('readability_score', 0),
+                    'originality_score': generation_data.get('qualityMetrics', {}).get('originality_score', 0),
+                    'grammar_score': generation_data.get('qualityMetrics', {}).get('grammar_score', 0),
+                    'fact_check_score': generation_data.get('qualityMetrics', {}).get('fact_check_score', 0),
+                    'ai_detection_score': generation_data.get('qualityMetrics', {}).get('ai_detection_score', 0),
+                    'overall_score': generation_data.get('qualityMetrics', {}).get('overall_score', 0)
                 },
                 'factCheckResults': {
                     'checked': generation_data.get('factCheckResults', {}).get('checked', False),

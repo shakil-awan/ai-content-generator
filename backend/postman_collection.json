@@ -407,6 +407,10 @@
             "value": "application/json"
           }
         ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"topic\": \"The Future of AI in Content Marketing\",\n  \"keywords\": [\"AI\", \"content marketing\", \"automation\", \"SEO\"],\n  \"tone\": \"professional\",\n  \"word_count\": 1500,\n  \"target_audience\": \"marketing professionals and business owners\",\n  \"writing_style\": \"how-to\",\n  \"include_examples\": true,\n  \"include_seo\": true,\n  \"include_images\": false\n}"
+        },
         "url": {
           "raw": "{{base_url}}/api/v1/generate/blog",
           "host": [
@@ -419,7 +423,7 @@
             "blog"
           ]
         },
-        "description": "Generate SEO-optimized blog post with automatic stats tracking.\n    \n    **Stats Auto-Increment:**\n    - usageThisMonth.generations++ (tracks monthly usage)\n    - allTimeStats.totalGenerations++ (lifetime counter)\n    - allTimeStats.averageQualityScore (recalculated from all generations)\n    \n    **Rate Limiting:**\n    - Free: 10 generations/month\n    - Pro: 100 generations/month\n    - Enterprise: Unlimited\n    \n    **Required Fields:**\n    - topic: What the blog post is about (3-200 chars)\n    - keywords: 1-10 SEO keywords to naturally include\n    - tone: Content tone (professional, casual, friendly, etc)\n    - length: short (~500), medium (~1000), long (~2000+ words)\n    \n    **Returns:**\n    - Complete blog post with title, content, meta description\n    - Word count and SEO metadata\n    - Generation ID for future reference (humanization, etc)\n    - REAL quality metrics (not mock data)"
+        "description": "Generate SEO-optimized blog post with Phase 2 enhancements.\n    \n    **Phase 2 Features:**\n    - word_count: Direct control (500-4000)\n    - target_audience: Tailors content to specific readers\n    - writing_style: narrative|listicle|how-to|case-study|comparison\n    - include_examples: Adds real-world examples\n    - validation: Returns quality metrics and accuracy\n    \n    **Stats Auto-Increment:**\n    - usageThisMonth.generations++\n    - allTimeStats.totalGenerations++\n    - allTimeStats.averageQualityScore\n    \n    **Rate Limiting:**\n    - Free: 10 generations/month\n    - Pro: 100 generations/month\n    - Enterprise: Unlimited\n    \n    **Returns:**\n    - Complete blog post with validation metrics\n    - Word count accuracy percentage\n    - Quality score (0-100)\n    - Validation issues (if any)"
       }
     },
     {

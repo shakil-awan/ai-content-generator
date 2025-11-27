@@ -118,8 +118,8 @@ class FactCheckSettingsSection extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppTheme.warning.withOpacity(0.1),
-                border: Border.all(color: AppTheme.warning.withOpacity(0.3)),
+                color: AppTheme.warning.withValues(alpha: 0.1),
+                border: Border.all(color: AppTheme.warning.withValues(alpha: 0.3)),
                 borderRadius: BorderRadius.circular(AppTheme.radiusMD),
               ),
               child: Row(
@@ -173,7 +173,7 @@ class FactCheckSettingsSection extends StatelessWidget {
                     activeTrackColor: AppTheme.primary,
                     inactiveTrackColor: AppTheme.neutral200,
                     thumbColor: AppTheme.primary,
-                    overlayColor: AppTheme.primary.withOpacity(0.2),
+                    overlayColor: AppTheme.primary.withValues(alpha: 0.2),
                     valueIndicatorColor: AppTheme.primary,
                   ),
                   child: Slider(

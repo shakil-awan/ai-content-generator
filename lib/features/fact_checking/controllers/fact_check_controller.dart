@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:get/get.dart';
 
 import '../models/fact_check_claim.dart';
@@ -47,7 +49,7 @@ class FactCheckController extends GetxController {
       isFactCheckEnabled.value = false;
       confidenceThreshold.value = 70;
     } catch (e) {
-      print('Error loading fact-check settings: $e');
+      log('Error loading fact-check settings: $e', name: 'FactCheckController');
     }
   }
 
@@ -59,11 +61,12 @@ class FactCheckController extends GetxController {
       //   autoFactCheck: isFactCheckEnabled.value,
       //   confidenceThreshold: confidenceThreshold.value,
       // );
-      print(
+      log(
         'Saving settings: enabled=${isFactCheckEnabled.value}, threshold=${confidenceThreshold.value}',
+        name: 'FactCheckController',
       );
     } catch (e) {
-      print('Error saving fact-check settings: $e');
+      log('Error saving fact-check settings: $e', name: 'FactCheckController');
       errorMessage.value = 'Failed to save settings';
     }
   }
@@ -80,7 +83,7 @@ class FactCheckController extends GetxController {
       quotaUsed.value = 7;
       quotaLimit.value = 10;
     } catch (e) {
-      print('Error checking quota: $e');
+      log('Error checking quota: $e', name: 'FactCheckController');
     }
   }
 
@@ -124,7 +127,7 @@ class FactCheckController extends GetxController {
       return results;
     } catch (e) {
       errorMessage.value = e.toString();
-      print('Error verifying content: $e');
+      log('Error verifying content: $e', name: 'FactCheckController');
       rethrow;
     } finally {
       isLoading.value = false;
@@ -160,7 +163,7 @@ class FactCheckController extends GetxController {
       quotaUsed.value++;
     } catch (e) {
       errorMessage.value = e.toString();
-      print('Error verifying content: $e');
+      log('Error verifying content: $e', name: 'FactCheckController');
       rethrow;
     } finally {
       isLoading.value = false;

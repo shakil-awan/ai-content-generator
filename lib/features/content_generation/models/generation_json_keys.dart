@@ -7,9 +7,15 @@ class GenerationJsonKeys {
   static const String contentType = 'content_type';
   static const String content = 'content';
   static const String title = 'title';
+  static const String metaDescription = 'meta_description';
+  static const String wordCount = 'word_count';
   static const String qualityMetrics = 'quality_metrics';
   static const String factCheckResults = 'fact_check_results';
   static const String humanization = 'humanization';
+  static const String aiSuggestions =
+      'ai_suggestions'; // Phase 3: AI improvement suggestions
+  static const String aiQualityMetrics =
+      'ai_quality_metrics'; // Phase 3: Deep AI analysis
   static const String isContentRefresh = 'is_content_refresh';
   static const String originalContentId = 'original_content_id';
   static const String videoScriptSettings = 'video_script_settings';
@@ -22,8 +28,10 @@ class GenerationJsonKeys {
 
   // Quality Metrics Keys
   static const String readabilityScore = 'readability_score';
-  static const String originalityScore = 'originality_score';
+  static const String completenessScore = 'completeness_score';
+  static const String seoScore = 'seo_score';
   static const String grammarScore = 'grammar_score';
+  static const String originalityScore = 'originality_score';
   static const String factCheckScore = 'fact_check_score';
   static const String aiDetectionScore = 'ai_detection_score';
   static const String overallScore = 'overall_score';
@@ -46,6 +54,7 @@ class GenerationJsonKeys {
   static const String afterScore = 'after_score';
   static const String detectionApi = 'detection_api';
   static const String processingTime = 'processing_time';
+  static const String humanizedAt = 'humanizedAt';
 
   // Video Script Settings Keys
   static const String platform = 'platform';

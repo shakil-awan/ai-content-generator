@@ -6,56 +6,56 @@ import '../../../core/theme/app_theme.dart';
 import '../controllers/controllers.dart';
 import '../widgets/widgets.dart';
 
-/// Landing Page - Main entry point
-/// Assembles all 10 sections with proper spacing
-class LandingPage extends StatefulWidget {
-  const LandingPage({super.key});
+/// Landing Page Scroll Controller
+class LandingPageScrollController extends GetxController {
+  final showScrollToTop = false.obs;
+  late final ScrollController scrollController;
 
   @override
-  State<LandingPage> createState() => _LandingPageState();
-}
-
-class _LandingPageState extends State<LandingPage> {
-  final ScrollController _scrollController = ScrollController();
-  bool _showScrollToTop = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _scrollController.addListener(_onScroll);
+  void onInit() {
+    super.onInit();
+    scrollController = ScrollController();
+    scrollController.addListener(_onScroll);
   }
 
   @override
-  void dispose() {
-    _scrollController.removeListener(_onScroll);
-    _scrollController.dispose();
-    super.dispose();
+  void onClose() {
+    scrollController.removeListener(_onScroll);
+    scrollController.dispose();
+    super.onClose();
   }
 
   void _onScroll() {
-    if (_scrollController.offset > 400 && !_showScrollToTop) {
-      setState(() => _showScrollToTop = true);
-    } else if (_scrollController.offset <= 400 && _showScrollToTop) {
-      setState(() => _showScrollToTop = false);
+    if (scrollController.offset > 400 && !showScrollToTop.value) {
+      showScrollToTop.value = true;
+    } else if (scrollController.offset <= 400 && showScrollToTop.value) {
+      showScrollToTop.value = false;
     }
   }
 
-  void _scrollToTop() {
-    _scrollController.animateTo(
+  void scrollToTop() {
+    scrollController.animateTo(
       0,
       duration: const Duration(milliseconds: 800),
       curve: Curves.easeInOut,
     );
   }
+}
+
+/// Landing Page - Main entry point
+/// Assembles all 10 sections with proper spacing
+class LandingPage extends StatelessWidget {
+  const LandingPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Initialize controller
+    // Initialize controllers
     Get.put(LandingController());
+    final scrollController = Get.put(LandingPageScrollController());
 
     return Scaffold(
       body: SingleChildScrollView(
-        controller: _scrollController,
+        controller: scrollController.scrollController,
         physics: const BouncingScrollPhysics(),
         child: Column(
           children: [
@@ -106,16 +106,18 @@ class _LandingPageState extends State<LandingPage> {
           ],
         ),
       ),
-      floatingActionButton: AnimatedOpacity(
-        opacity: _showScrollToTop ? 1.0 : 0.0,
-        duration: const Duration(milliseconds: 300),
-        child: _showScrollToTop
-            ? FloatingActionButton(
-                onPressed: _scrollToTop,
-                backgroundColor: AppTheme.primary,
-                child: const Icon(Icons.arrow_upward, color: Colors.white),
-              )
-            : const SizedBox.shrink(),
+      floatingActionButton: Obx(
+        () => AnimatedOpacity(
+          opacity: scrollController.showScrollToTop.value ? 1.0 : 0.0,
+          duration: const Duration(milliseconds: 300),
+          child: scrollController.showScrollToTop.value
+              ? FloatingActionButton(
+                  onPressed: scrollController.scrollToTop,
+                  backgroundColor: AppTheme.primary,
+                  child: const Icon(Icons.arrow_upward, color: Colors.white),
+                )
+              : const SizedBox.shrink(),
+        ),
       ),
     );
   }
