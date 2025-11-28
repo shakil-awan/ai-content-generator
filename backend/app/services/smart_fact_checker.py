@@ -77,7 +77,8 @@ class SmartFactChecker:
             raise ValueError("GEMINI_API_KEY environment variable not set")
         
         genai.configure(api_key=api_key)
-        self.gemini_model = genai.GenerativeModel('gemini-2.0-flash-exp')
+        from app.config import ModelConfig
+        self.gemini_model = genai.GenerativeModel(ModelConfig.FACT_CHECK_MODEL)
         
         # Google Custom Search API
         self.search_api_key = os.getenv('GOOGLE_SEARCH_API_KEY')
@@ -171,9 +172,13 @@ class SmartFactChecker:
             # Step 1: Extract factual claims with Gemini
             logger.info("🔍 Extracting factual claims with Gemini...")
             logger.info(f"📄 Content length: {len(content)} chars, {len(content.split())} words")
-            logger.info(f"📝 Content preview: {content[:200]}...")
+            logger.info(f"📝 Content preview: {content[:300]}...")
+            logger.info(f"📝 Content middle: ...{content[len(content)//2-150:len(content)//2+150]}...")
             claims = await self._extract_claims(content, content_type)
             logger.info(f"📊 Extracted {len(claims)} claims: {claims[:2] if claims else 'None'}")
+            if len(claims) == 0:
+                logger.warning(f"⚠️  NO CLAIMS EXTRACTED! Content may be too opinion-based or lacks verifiable facts.")
+                logger.warning(f"⚠️  Content type: {content_type}, Enable check: {enable_fact_check}")
             
             if not claims:
                 logger.info("✓ No verifiable factual claims found")
@@ -262,9 +267,11 @@ If no verifiable claims found, return empty array: []
                 )
             )
             
-            logger.info(f"🤖 Gemini response: {response.text[:200]}...")
+            logger.info(f"🤖 Gemini response (full): {response.text}")
             claims = json.loads(response.text)
             logger.info(f"✅ Parsed {len(claims)} claims from Gemini response")
+            if len(claims) == 0:
+                logger.warning(f"⚠️  Gemini returned empty array - content likely has no verifiable facts")
             return claims if isinstance(claims, list) else []
             
         except Exception as e:

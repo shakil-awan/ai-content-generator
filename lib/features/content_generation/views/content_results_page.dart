@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:gap/gap.dart';
 import 'package:get/get.dart';
@@ -51,7 +50,8 @@ class ContentResultsPage extends GetView<ContentGenerationController> {
       ),
       body: SafeArea(
         child: Obx(() {
-          final content = controller.generatedContent.value;
+          final ContentGenerationResponse? content =
+              controller.generatedContent.value;
 
           if (content == null) {
             return const Center(child: BodyText('No content generated yet'));
@@ -71,7 +71,7 @@ class ContentResultsPage extends GetView<ContentGenerationController> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Quality regeneration prompt (if quality is low)
-                    _buildRegenerationPrompt(),
+                    _buildRegenerationPrompt(context),
 
                     // AI Humanization section - Show ABOVE content when humanized
                     _buildHumanizationSection(context),
@@ -102,7 +102,7 @@ class ContentResultsPage extends GetView<ContentGenerationController> {
     );
   }
 
-  Widget _buildContentCard(dynamic content, bool isDesktop) {
+  Widget _buildContentCard(ContentGenerationResponse content, bool isDesktop) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -466,32 +466,12 @@ class ContentResultsPage extends GetView<ContentGenerationController> {
               ),
             ),
           ),
-
-          const Gap(16),
-
-          // Copy button in bottom right
-          Align(
-            alignment: Alignment.centerRight,
-            child: SecondaryButton(
-              text: 'Copy',
-              icon: Icons.copy,
-              onPressed: () async {
-                await Clipboard.setData(ClipboardData(text: content.content));
-                Get.snackbar(
-                  'Copied',
-                  'Content copied to clipboard',
-                  snackPosition: SnackPosition.BOTTOM,
-                  duration: const Duration(seconds: 2),
-                );
-              },
-            ),
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildQualityDetailsPanel(dynamic content) {
+  Widget _buildQualityDetailsPanel(ContentGenerationResponse content) {
     return Obx(() {
       final qualityScore = controller.currentQualityScore.value;
       final isScoringQuality = controller.isScoringQuality.value;
@@ -524,8 +504,7 @@ class ContentResultsPage extends GetView<ContentGenerationController> {
             QualityDetailsPanel(qualityScore: qualityScore),
 
             // AI-powered improvement suggestions (Phase 3)
-            if (content is ContentGenerationResponse &&
-                content.aiSuggestions.isNotEmpty) ...[
+            if (content.aiSuggestions.isNotEmpty) ...[
               const Gap(16),
               Container(
                 padding: const EdgeInsets.all(20),
@@ -723,11 +702,11 @@ class ContentResultsPage extends GetView<ContentGenerationController> {
     );
   }
 
-  Widget _buildFactCheckPanel(dynamic content) {
+  Widget _buildFactCheckPanel(ContentGenerationResponse content) {
     final factCheck = content.factCheckResults;
 
-    // If fact-checking wasn't performed or no results, show placeholder
-    if (factCheck == null || !factCheck.checked) {
+    // If fact-checking wasn't performed, show placeholder
+    if (!factCheck.checked) {
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -778,7 +757,7 @@ class ContentResultsPage extends GetView<ContentGenerationController> {
 
     // Safety check: Skip fact-checking panel if no actual fact-checking was done
     // This handles old content with placeholder/mock data
-    if (!factCheck.checked || factCheck.claimsFound == 0) {
+    if (factCheck.claimsFound == 0) {
       print('\n⚠️ SKIPPING FACT CHECK PANEL: No real fact-checking data');
       print('  - checked: ${factCheck.checked}');
       print('  - claimsFound: ${factCheck.claimsFound}');
@@ -810,21 +789,17 @@ class ContentResultsPage extends GetView<ContentGenerationController> {
     final fcResults = fc.FactCheckResults(
       checked: factCheck.checked,
       claims: factCheck.claims.map<fc.FactCheckClaim>((claim) {
-        // Convert sources list safely
-        final sourcesList = <fc.FactCheckSource>[];
-        if (claim.sources != null) {
-          for (var s in claim.sources) {
-            sourcesList.add(
-              fc.FactCheckSource(
+        final sourcesList = claim.sources
+            .map(
+              (s) => fc.FactCheckSource(
                 url: s.url,
                 title: s.title,
                 snippet: s.snippet,
                 domain: s.domain,
                 authorityLevel: s.authorityLevel,
               ),
-            );
-          }
-        }
+            )
+            .toList();
 
         return fc.FactCheckClaim(
           claim: claim.claim,
@@ -997,7 +972,7 @@ class ContentResultsPage extends GetView<ContentGenerationController> {
     }
   }
 
-  Widget _buildRegenerationPrompt() {
+  Widget _buildRegenerationPrompt(BuildContext context) {
     return Obx(() {
       final qualityScore = controller.currentQualityScore.value;
       final attempts = controller.regenerationAttempts.value;
@@ -1074,7 +1049,7 @@ class ContentResultsPage extends GetView<ContentGenerationController> {
                             'Regenerate Content (${attempts + 1}/$maxAttempts)',
                         icon: Icons.refresh,
                         onPressed: () async {
-                          await controller.regenerateContent();
+                          await controller.regenerateContent(context);
                         },
                       ),
                     ),

@@ -622,37 +622,121 @@ curl -X POST "http://localhost:8001/api/v1/generate/blog" \
   "user_id": "user_xyz789",
   "content_type": "blog",
   "title": "The Transformative Power of AI in Modern Healthcare",
-  "content": "Full blog post content...",
+  "content": "Full blog post content with introduction, multiple sections, and conclusion...",
+  "meta_description": "Discover how AI is revolutionizing healthcare through advanced diagnostics, personalized treatment plans, and improved patient outcomes.",
+  "word_count": 1487,
   "settings": {
     "tone": "professional",
-    "word_count": 1500,
-    "target_audience": "medical professionals",
-    "writing_style": "case-study",
-    "include_examples": true
+    "targetWordCount": 1500,
+    "targetAudience": "medical professionals",
+    "writingStyle": "case-study",
+    "includeExamples": true,
+    "keywordStrategy": "balanced"
   },
   "quality_metrics": {
-    "readability_score": 8.5,
-    "originality_score": 9.0,
-    "grammar_score": 9.5,
-    "overall_score": 8.7
+    "readability_score": 8.5,        // 0-10 scale
+    "completeness_score": 9.2,       // 0-10 scale
+    "seo_score": 8.8,                // 0-10 scale
+    "grammar_score": 9.5,            // 0-10 scale
+    "originality_score": 9.0,        // 0-10 scale
+    "fact_check_score": 0.0,         // 0-10 (if fact-checking enabled)
+    "ai_detection_score": 7.5,       // 0-10 (lower = more human-like)
+    "overall_score": 8.7             // 0-10 average
   },
-  "validation": {
-    "valid": true,
-    "quality_score": 95,
-    "word_count_accuracy": 97.5,
-    "issues": []
+  "fact_check_results": {
+    "checked": false,
+    "claims": [],
+    "verificationTime": 0
   },
-  "model_used": "gemini-2.5-flash",
-  "generation_time": 3.2,
-  "created_at": "2025-11-25T10:00:00Z"
+  "humanization": {
+    "applied": false,
+    "level": null,
+    "beforeScore": 7.5,
+    "afterScore": 0,
+    "detectionApi": null,
+    "processingTime": 0
+  },
+  "metadata": {
+    "tokensUsed": 2016,
+    "modelUsed": "gemini-2.5-flash",  // or "gemini-2.5-pro" for longer content
+    "processingTime": 7.71,            // seconds
+    "costEstimate": 0.00002016         // in USD
+  },
+  "generationTime": 7.71,
+  "tokensUsed": 2016,
+  "modelUsed": "gemini-2.5-flash",
+  "created_at": "2025-11-28T10:00:00Z",
+  "updated_at": "2025-11-28T10:00:00Z"
 }
 ```
 
-**Note:** `validation` object (Phase 2) includes:
-- `valid` (bool): Whether output meets all quality checks
-- `quality_score` (0-100): Overall quality rating
-- `word_count_accuracy` (percentage): How close to target word count
-- `issues` (array): List of validation issues (empty if valid)
+**Response Schema (TypeScript):**
+```typescript
+interface BlogGenerationResponse {
+  id: string;
+  user_id: string;
+  content_type: "blog";
+  title: string;
+  content: string;                  // Full blog with all sections
+  meta_description?: string;        // SEO meta description (155-160 chars)
+  word_count: number;               // Actual word count
+  settings: {
+    tone: string;
+    targetWordCount: number;
+    targetAudience?: string;
+    writingStyle?: string;
+    includeExamples?: boolean;
+    keywordStrategy?: string;
+  };
+  quality_metrics: {
+    readability_score: number;      // 0-10
+    completeness_score: number;     // 0-10
+    seo_score: number;              // 0-10
+    grammar_score: number;          // 0-10
+    originality_score: number;      // 0-10
+    fact_check_score: number;       // 0-10
+    ai_detection_score: number;     // 0-10
+    overall_score: number;          // 0-10
+  };
+  fact_check_results: {
+    checked: boolean;
+    claims: Array<{
+      claim: string;
+      verified: boolean;
+      confidence: number;
+      evidence: string;
+      sources: Array<{
+        url: string;
+        title: string;
+        snippet: string;
+      }>;
+    }>;
+    verificationTime: number;
+  };
+  humanization: {
+    applied: boolean;
+    level: string | null;
+    beforeScore: number;
+    afterScore: number;
+    detectionApi: string | null;
+    processingTime: number;
+  };
+  metadata: {
+    tokensUsed: number;
+    modelUsed: string;
+    processingTime: number;
+    costEstimate: number;
+  };
+  created_at: string;
+  updated_at: string;
+}
+```
+
+**Notes:** 
+- All quality scores are on 0-10 scale
+- `modelUsed` will be "gemini-2.5-flash" (standard) or "gemini-2.5-pro" (premium/long content)
+- Stats automatically increment: `usageThisMonth.generations++`, `allTimeStats.totalGenerations++`
+- No Gemini 2.0 models are used anywhere in the application
 
 ---
 
@@ -661,24 +745,122 @@ curl -X POST "http://localhost:8001/api/v1/generate/blog" \
 ```http
 POST /api/v1/generate/social
 Authorization: Bearer {token}
+Content-Type: application/json
 ```
 
-**Required Parameters:**
+**Request Body Schema:**
 ```json
 {
-  "platform": "twitter|linkedin|instagram|facebook|tiktok",  // REQUIRED
-  "topic": "string (3-200 chars)",                          // REQUIRED
-  "tone": "professional|casual|friendly|formal|humorous"
+  "platform": "linkedin|twitter|instagram|tiktok",  // REQUIRED
+  "topic": "string (3-200 chars)",                  // REQUIRED
+  "tone": "professional|casual|friendly|witty|inspirational",  // Default: "casual"
+  "include_hashtags": true,                          // Default: true
+  "include_emoji": true,                             // Default: true
+  "include_call_to_action": true,                    // Default: true
+  "character_limit": null,                           // Optional platform-specific limit
+  "custom_settings": {}                              // Optional
 }
 ```
 
-**Optional Parameters:**
+**Example Request:**
+```bash
+curl -X POST "http://localhost:8001/api/v1/generate/social" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "platform": "linkedin",
+    "topic": "5 key trends shaping the future of remote work in 2025",
+    "tone": "professional",
+    "include_hashtags": true,
+    "include_emoji": true,
+    "include_call_to_action": true
+  }'
+```
+
+**Success Response (201):**
 ```json
 {
-  "include_hashtags": true,
-  "include_emojis": true,
-  "character_limit": null,                    // Platform-specific limit
-  "custom_settings": {}
+  "id": "gen_social123",
+  "user_id": "user_xyz789",
+  "content_type": "socialMedia",
+  "content": "Formatted text with captions, hashtags, and engagement tips...",
+  "output": {
+    "captions": [
+      {
+        "variation": 1,
+        "text": "Is your organization ready for the seismic shifts in remote work by 2025? 💡...",
+        "length": 929
+      },
+      {
+        "variation": 2,
+        "text": "Imagine a typical workday in 2025: You wake up, check your personalized AI assistant...",
+        "length": 863
+      }
+    ],
+    "hashtags": [
+      "#FutureOfWork",
+      "#RemoteWork",
+      "#WorkTrends",
+      "#HRTech",
+      "#DigitalTransformation"
+    ],
+    "emojiSuggestions": ["💡", "🚀", "📊", "✨", "🎯"],
+    "engagementTips": "Post during peak professional hours (9-11 AM) and engage with comments within first hour for maximum reach."
+  },
+  "settings": {
+    "platform": "linkedin",
+    "tone": "professional",
+    "includeHashtags": true,
+    "includeEmoji": true,
+    "includeCallToAction": true
+  },
+  "quality_metrics": {
+    "readability_score": 8.5,
+    "completeness_score": 9.0,
+    "seo_score": 0.0,
+    "grammar_score": 9.5,
+    "originality_score": 8.5,
+    "fact_check_score": 0.0,
+    "ai_detection_score": 7.0,
+    "overall_score": 8.7
+  },
+  "metadata": {
+    "tokensUsed": 1900,
+    "modelUsed": "gemini-2.5-flash",
+    "processingTime": 12.5,
+    "costEstimate": 0.000019
+  },
+  "created_at": "2025-11-28T10:00:00Z"
+}
+```
+
+**Response Schema (TypeScript):**
+```typescript
+interface SocialMediaResponse {
+  id: string;
+  user_id: string;
+  content_type: "socialMedia";
+  content: string;
+  output: {
+    captions: Array<{
+      variation: number;
+      text: string;
+      length: number;
+    }>;
+    hashtags: string[];
+    emojiSuggestions: string[];
+    engagementTips: string;
+  };
+  settings: {
+    platform: string;
+    tone: string;
+    includeHashtags: boolean;
+    includeEmoji: boolean;
+    includeCallToAction: boolean;
+  };
+  quality_metrics: QualityMetrics;
+  metadata: Metadata;
+  created_at: string;
 }
 ```
 
@@ -688,23 +870,111 @@ Authorization: Bearer {token}
 
 ```http
 POST /api/v1/generate/email
+Authorization: Bearer {token}
+Content-Type: application/json
 ```
 
-**Required Parameters:**
+**Request Body Schema:**
 ```json
 {
-  "campaign_type": "promotional|newsletter|abandoned_cart|welcome|re_engagement",  // REQUIRED
-  "subject_line": "string (5-100 chars)",                                         // REQUIRED
-  "product_service": "string (3-200 chars)",                                      // REQUIRED
-  "tone": "professional|casual|friendly|formal"
+  "campaign_type": "promotional|newsletter|welcome|abandoned_cart|re_engagement|announcement",  // REQUIRED
+  "subject_line": "string (5-100 chars)",              // REQUIRED
+  "product_service": "string (3-200 chars)",           // REQUIRED
+  "tone": "professional|friendly|casual|urgent",       // Default: "professional"
+  "include_personalization": true,                     // Default: true
+  "custom_settings": {}                                // Optional
 }
 ```
 
-**Optional Parameters:**
+**Example Request:**
+```bash
+curl -X POST "http://localhost:8001/api/v1/generate/email" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "campaign_type": "promotional",
+    "subject_line": "Exclusive 50% Off - Limited Time Offer!",
+    "product_service": "Premium AI Content Generation Platform",
+    "tone": "friendly",
+    "include_personalization": true
+  }'
+```
+
+**Success Response (201):**
 ```json
 {
-  "include_personalization": true,
-  "custom_settings": {}
+  "id": "gen_email456",
+  "user_id": "user_xyz789",
+  "content_type": "email",
+  "content": "Subject: Exclusive 50% Off - Limited Time Offer!\n\nHi [Name],\n\n...",
+  "output": {
+    "subject": "Exclusive 50% Off - Limited Time Offer!",
+    "preheader": "Don't miss out on our biggest sale of the year",
+    "greeting": "Hi [Name],",
+    "body": "We're excited to offer you an exclusive 50% discount on our Premium AI Content Generation Platform...",
+    "cta": {
+      "text": "Claim Your Discount Now",
+      "url_placeholder": "[INSERT_CHECKOUT_URL]"
+    },
+    "closing": "Best regards,\nThe AI Content Team",
+    "ps": "P.S. This offer expires in 48 hours - don't wait!"
+  },
+  "settings": {
+    "campaignType": "promotional",
+    "subjectLine": "Exclusive 50% Off - Limited Time Offer!",
+    "productService": "Premium AI Content Generation Platform",
+    "tone": "friendly",
+    "includePersonalization": true
+  },
+  "quality_metrics": {
+    "readability_score": 9.0,
+    "completeness_score": 9.0,
+    "seo_score": 9.0,
+    "grammar_score": 9.0,
+    "originality_score": 8.8,
+    "fact_check_score": 0.0,
+    "ai_detection_score": 7.2,
+    "overall_score": 9.0
+  },
+  "metadata": {
+    "tokensUsed": 583,
+    "modelUsed": "gemini-2.5-flash",
+    "processingTime": 3.35,
+    "costEstimate": 0.000006
+  },
+  "created_at": "2025-11-28T10:00:00Z"
+}
+```
+
+**Response Schema (TypeScript):**
+```typescript
+interface EmailCampaignResponse {
+  id: string;
+  user_id: string;
+  content_type: "email";
+  content: string;  // Formatted email text
+  output: {
+    subject: string;
+    preheader?: string;
+    greeting: string;
+    body: string;
+    cta: {
+      text: string;
+      url_placeholder: string;
+    };
+    closing: string;
+    ps?: string;
+  };
+  settings: {
+    campaignType: string;
+    subjectLine: string;
+    productService: string;
+    tone: string;
+    includePersonalization: boolean;
+  };
+  quality_metrics: QualityMetrics;
+  metadata: Metadata;
+  created_at: string;
 }
 ```
 
@@ -808,43 +1078,135 @@ POST /api/v1/generate/ad
 
 ```http
 POST /api/v1/generate/video-script
+Authorization: Bearer {token}
+Content-Type: application/json
 ```
 
-**✅ VERIFIED REQUIRED PARAMETERS (Schema-Based):**
+**Request Body Schema:**
 ```json
 {
   "topic": "string (3-200 chars)",                           // REQUIRED
-  "platform": "youtube|tiktok|instagram|linkedin",           // REQUIRED
-  "duration": 60,                                            // REQUIRED (15-600 seconds)
-  "tone": "professional|casual|friendly|formal"
+  "duration": 60,                                            // REQUIRED (30-600 seconds)
+  "platform": "youtube|tiktok|instagram|facebook",           // REQUIRED
+  "target_audience": "professionals",                        // Optional
+  "key_points": ["point1", "point2"],                        // Optional (max 5)
+  "include_hooks": true,                                     // Default: true
+  "include_cta": true,                                       // Default: true
+  "cta": "Visit our website for more tips",                  // Optional custom CTA
+  "custom_settings": {}                                      // Optional
 }
 ```
-
-**Optional Parameters:**
-```json
-{
-  "include_hooks": true,
-  "include_cta": true,
-  "custom_settings": {}
-}
-```
-
-**⚠️ NOTE:** Implementation may also accept:
-- `target_audience` (string) - Not in schema but used in implementation
-- `key_points` (List[str]) - Not in schema but used in implementation
-- `cta` (string) - Not in schema but used in implementation
 
 **Example Request:**
+```bash
+curl -X POST "http://localhost:8001/api/v1/generate/video-script" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "topic": "How to boost productivity with AI tools in 2025",
+    "duration": 60,
+    "platform": "youtube",
+    "target_audience": "professionals",
+    "key_points": ["AI automation", "Time management", "Focus techniques"],
+    "include_hooks": true,
+    "include_cta": true
+  }'
+```
+
+**Success Response (201):**
 ```json
 {
-  "topic": "5 Tips for Better Productivity",
-  "platform": "youtube",
-  "duration": 300,
-  "tone": "friendly",
-  "include_hooks": true,
-  "include_cta": true
+  "id": "gen_video789",
+  "user_id": "user_xyz789",
+  "content_type": "videoScript",
+  "content": "Full formatted video script with timestamps and sections...",
+  "output": {
+    "title": "Supercharge Your Productivity: AI Tools That Actually Work in 2025",
+    "hook": "What if I told you that you could save 3 hours every single day? Let me show you how...",
+    "sections": [
+      {
+        "timestamp": "0:00-0:08",
+        "heading": "Hook",
+        "narration": "What if I told you that you could save 3 hours every single day?",
+        "visualCues": "Energetic opener with quick cuts showing busy professional",
+        "onScreenText": "Save 3 Hours Daily!"
+      },
+      {
+        "timestamp": "0:08-0:20",
+        "heading": "Introduction",
+        "narration": "Hey professionals! In 2025, AI tools have evolved beyond simple automation...",
+        "visualCues": "Host speaking directly to camera, warm and engaging",
+        "onScreenText": "AI Productivity Revolution"
+      }
+    ],
+    "outro": "That's it! Three powerful ways to boost your productivity with AI in 2025.",
+    "callToAction": "Try these tools today and let me know which one works best for you in the comments!",
+    "estimatedDuration": 60
+  },
+  "settings": {
+    "topic": "How to boost productivity with AI tools in 2025",
+    "duration": 60,
+    "platform": "youtube",
+    "targetAudience": "professionals"
+  },
+  "quality_metrics": {
+    "readability_score": 9.0,
+    "completeness_score": 9.0,
+    "seo_score": 9.0,
+    "grammar_score": 9.0,
+    "originality_score": 8.5,
+    "fact_check_score": 0.0,
+    "ai_detection_score": 7.0,
+    "overall_score": 9.0
+  },
+  "metadata": {
+    "tokensUsed": 2539,
+    "modelUsed": "gemini-2.5-flash",
+    "processingTime": 12.09,
+    "costEstimate": 0.000025
+  },
+  "created_at": "2025-11-28T10:00:00Z"
 }
 ```
+
+**Response Schema (TypeScript):**
+```typescript
+interface VideoScriptResponse {
+  id: string;
+  user_id: string;
+  content_type: "videoScript";
+  content: string;  // Formatted script text
+  output: {
+    title: string;
+    hook: string;
+    sections: Array<{
+      timestamp: string;        // e.g., "0:00-0:08"
+      heading: string;
+      narration: string;
+      visualCues: string;
+      onScreenText?: string;
+    }>;
+    outro: string;
+    callToAction: string;
+    estimatedDuration: number;  // seconds
+  };
+  settings: {
+    topic: string;
+    duration: number;
+    platform: string;
+    targetAudience?: string;
+  };
+  quality_metrics: QualityMetrics;
+  metadata: Metadata;
+  created_at: string;
+}
+```
+
+**Platform-Specific Notes:**
+- **YouTube:** Longer format (60-600s), detailed sections, SEO-optimized titles
+- **TikTok:** Short format (15-60s), fast-paced, trending hooks
+- **Instagram:** Medium format (30-90s), visual-first, engaging captions
+- **Facebook:** Flexible format (30-300s), community-focused, shareable content
 
 ---
 

@@ -30,19 +30,11 @@ class ActionButtonsRow extends GetView<ContentGenerationController> {
             child: SecondaryButton(
               text: 'Regenerate',
               icon: Icons.refresh,
-              onPressed: () => controller.regenerateContent(),
+              onPressed: () => controller.regenerateContent(context),
             ),
           ),
           const Gap(12),
-          Expanded(
-            child: PrimaryButton(
-              text: 'Save',
-              icon: Icons.save,
-              onPressed: () => controller.saveContent(),
-            ),
-          ),
-          const Gap(12),
-          const ExportMenu(),
+          Expanded(child: ExportMenu()),
         ],
       );
     }
@@ -61,18 +53,11 @@ class ActionButtonsRow extends GetView<ContentGenerationController> {
         SecondaryButton(
           text: 'Regenerate',
           icon: Icons.refresh,
-          onPressed: () => controller.regenerateContent(),
+          onPressed: () => controller.regenerateContent(context),
           width: double.infinity,
         ),
         const Gap(12),
-        PrimaryButton(
-          text: 'Save',
-          icon: Icons.save,
-          onPressed: () => controller.saveContent(),
-          width: double.infinity,
-        ),
-        const Gap(12),
-        const ExportMenu(),
+        ExportMenu(width: double.infinity),
       ],
     );
   }

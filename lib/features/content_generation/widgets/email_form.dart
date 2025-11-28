@@ -132,7 +132,7 @@ class EmailForm extends GetView<ContentGenerationController> {
           () => PrimaryButton(
             text: 'Generate Email 🚀',
             onPressed: controller.canGenerateEmail
-                ? () => controller.generateEmail()
+                ? () => controller.generateEmail(context)
                 : null,
             isLoading: controller.isGenerating.value,
             width: double.infinity,

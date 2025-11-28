@@ -59,7 +59,9 @@ class ContentGenerationResponse {
       contentType: json[GenerationJsonKeys.contentType] as String,
       content: json[GenerationJsonKeys.content] as String,
       title: json[GenerationJsonKeys.title] as String?,
-      metaDescription: json[GenerationJsonKeys.metaDescription] as String?,
+      metaDescription:
+          (json[GenerationJsonKeys.metaDescription] ?? json['metaDescription'])
+              as String?,
       wordCount: json[GenerationJsonKeys.wordCount] as int?,
       qualityMetrics: QualityMetrics.fromJson(
         json[GenerationJsonKeys.qualityMetrics] as Map<String, dynamic>,
@@ -121,6 +123,7 @@ class ContentGenerationResponse {
     String? contentType,
     String? content,
     String? title,
+    String? metaDescription,
     QualityMetrics? qualityMetrics,
     FactCheckResults? factCheckResults,
     HumanizationResult? humanization,
@@ -141,6 +144,7 @@ class ContentGenerationResponse {
       contentType: contentType ?? this.contentType,
       content: content ?? this.content,
       title: title ?? this.title,
+      metaDescription: metaDescription ?? this.metaDescription,
       qualityMetrics: qualityMetrics ?? this.qualityMetrics,
       factCheckResults: factCheckResults ?? this.factCheckResults,
       humanization: humanization ?? this.humanization,
@@ -164,6 +168,9 @@ class ContentGenerationResponse {
       GenerationJsonKeys.contentType: contentType,
       GenerationJsonKeys.content: content,
       if (title != null) GenerationJsonKeys.title: title,
+      if (metaDescription != null)
+        GenerationJsonKeys.metaDescription: metaDescription,
+      if (metaDescription != null) 'metaDescription': metaDescription,
       GenerationJsonKeys.qualityMetrics: qualityMetrics.toJson(),
       GenerationJsonKeys.factCheckResults: factCheckResults.toJson(),
       GenerationJsonKeys.humanization: humanization.toJson(),

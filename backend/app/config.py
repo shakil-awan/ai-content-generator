@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     CORS_ORIGINS: List[str] = ["*"]  # TODO: Restrict in production
     
     # AI Service API Keys
-    # PRIMARY: Gemini 2.0 Flash ($0.10/$0.40 per 1M tokens) - 75% cheaper than GPT-4o-mini
+    # PRIMARY: Gemini 2.5 Flash ($0.10/$0.40 per 1M tokens) - 75% cheaper than GPT-4o-mini
     # FALLBACK: GPT-4o-mini ($0.15/$0.60 per 1M tokens) - for quality backup
     # See: backend/AI_MODELS_CONFIG.md for full decision rationale
     GEMINI_API_KEY: str = ""  # PRIMARY for text generation
@@ -31,10 +31,20 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: str = ""  # Future use
     REPLICATE_API_KEY: str = ""  # For Flux Schnell image generation ($0.003/image)
     
-    # Model Selection (See AI_MODELS_CONFIG.md)
-    PRIMARY_TEXT_MODEL: str = "gemini-2.5-flash"  # Primary for all text (65K tokens, upgraded from 2.0)
+    # Video Generation API
+    VIDEO_API_PROVIDER: str = "replicate"  # Options: replicate, runpod, stabilityai
+    VIDEO_API_KEY: str = ""  # Video generation API key (defaults to REPLICATE_API_KEY)
+    VIDEO_API_URL: str = "https://api.replicate.com/v1/predictions"
+    # VIDEO_MODEL: str = "google-deepmind/veo-2"  # Google Veo 2 (1080p, best quality, $0.10/sec)
+    VIDEO_MODEL: str = "minimax/video-01"  # MiniMax Video-01 (720p, fast, $0.006/sec)
+    # VIDEO_MODEL: str = "anotherjesse/zeroscope-v2-xl"  # ZeroScope (older, fallback)
+    VIDEO_MAX_DURATION: int = 300  # Max video duration in seconds (5 minutes)
+    
+    # Model Selection - Centralized Configuration (can be overridden via .env)
+    # All models upgraded to Gemini 2.5 (November 2025)
+    PRIMARY_TEXT_MODEL: str = "gemini-2.5-flash"  # Primary for all text (1M tokens context)
     FALLBACK_TEXT_MODEL: str = "gpt-4o-mini"  # Fallback on errors
-    PREMIUM_TEXT_MODEL: str = "gemini-2.5-pro"  # Enterprise tier only
+    PREMIUM_TEXT_MODEL: str = "gemini-2.5-pro"  # Premium/Enterprise tier (2M tokens context)
     PRIMARY_IMAGE_MODEL: str = "flux-schnell"  # black-forest-labs/flux-schnell via Replicate
     PREMIUM_IMAGE_MODEL: str = "dall-e-3"  # Enterprise tier only
     
@@ -131,6 +141,101 @@ class Settings(BaseSettings):
 
 # Initialize settings
 settings = Settings()
+
+
+# ==================== Model Configuration Constants ====================
+class ModelConfig:
+    """
+    Centralized model configuration - Single source of truth for all AI models
+    Similar to frontend ApiEndpoints pattern for consistency
+    
+    Usage:
+        from app.config import ModelConfig
+        
+        # Use in services
+        model_name = ModelConfig.GEMINI_FLASH
+        client = genai.Client(model=model_name)
+    
+    Benefits:
+        - Easy to update models across entire application
+        - Type-safe model references
+        - Clear model hierarchy (standard vs premium)
+        - Environment-based overrides via .env
+    """
+    
+    # ==================== Text Generation Models ====================
+    # Standard Models (All Tiers)
+    GEMINI_FLASH: str = settings.PRIMARY_TEXT_MODEL  # "gemini-2.5-flash"
+    GPT_4O_MINI: str = settings.FALLBACK_TEXT_MODEL  # "gpt-4o-mini"
+    
+    # Premium Models (Pro/Enterprise Only)
+    GEMINI_PRO: str = settings.PREMIUM_TEXT_MODEL  # "gemini-2.5-pro"
+    
+    # ==================== Image Generation Models ====================
+    FLUX_SCHNELL: str = settings.PRIMARY_IMAGE_MODEL  # "flux-schnell"
+    DALLE_3: str = settings.PREMIUM_IMAGE_MODEL  # "dall-e-3"
+    
+    # ==================== Model Aliases for Specific Use Cases ====================
+    # Content Generation
+    BLOG_MODEL: str = GEMINI_FLASH  # Can use GEMINI_PRO for premium
+    SOCIAL_MEDIA_MODEL: str = GEMINI_FLASH
+    EMAIL_MODEL: str = GEMINI_FLASH
+    VIDEO_SCRIPT_MODEL: str = GEMINI_FLASH  # Can use GEMINI_PRO for long videos
+    
+    # Quality & Analysis
+    HUMANIZATION_MODEL: str = GEMINI_FLASH
+    FACT_CHECK_MODEL: str = GEMINI_FLASH
+    QUALITY_ANALYZER_MODEL: str = GEMINI_FLASH
+    
+    # ==================== Model Selection Helpers ====================
+    @staticmethod
+    def get_text_model(user_tier: str = "free", content_complexity: str = "standard") -> str:
+        """
+        Get appropriate text model based on user tier and content complexity
+        
+        Args:
+            user_tier: User subscription tier (free, hobby, pro, enterprise)
+            content_complexity: Content complexity (standard, premium)
+        
+        Returns:
+            Model name string
+        """
+        # Enterprise/Pro users with complex content get premium model
+        if user_tier in ["enterprise", "pro"] and content_complexity == "premium":
+            return ModelConfig.GEMINI_PRO
+        
+        # Everyone else gets standard model
+        return ModelConfig.GEMINI_FLASH
+    
+    @staticmethod
+    def get_image_model(user_tier: str = "free") -> str:
+        """
+        Get appropriate image model based on user tier
+        
+        Args:
+            user_tier: User subscription tier
+        
+        Returns:
+            Model name string
+        """
+        if user_tier == "enterprise":
+            return ModelConfig.DALLE_3
+        
+        return ModelConfig.FLUX_SCHNELL
+    
+    # ==================== Model Context Limits ====================
+    GEMINI_FLASH_CONTEXT: int = 1_000_000  # 1M tokens
+    GEMINI_PRO_CONTEXT: int = 2_000_000  # 2M tokens
+    GPT_4O_MINI_CONTEXT: int = 128_000  # 128K tokens
+    
+    # ==================== Model Pricing (per 1M tokens) ====================
+    GEMINI_FLASH_COST_INPUT: float = 0.075  # $0.075 per 1M input tokens
+    GEMINI_FLASH_COST_OUTPUT: float = 0.30  # $0.30 per 1M output tokens
+    GEMINI_PRO_COST_INPUT: float = 1.25  # $1.25 per 1M input tokens
+    GEMINI_PRO_COST_OUTPUT: float = 5.00  # $5.00 per 1M output tokens
+    FLUX_SCHNELL_COST: float = 0.003  # $0.003 per image
+    DALLE_3_COST: float = 0.040  # $0.040 per image
+
 
 # Validate critical settings
 def validate_settings():

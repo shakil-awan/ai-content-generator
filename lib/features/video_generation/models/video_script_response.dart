@@ -5,24 +5,26 @@ import 'script_section.dart';
 /// Video Script Response Model
 /// Response from video script generation API
 class VideoScriptResponse {
+  final String? id; // Generation ID from backend
   final String hook;
   final List<ScriptSection> script;
   final String ctaScript;
   final List<String> thumbnailTitles;
   final String description;
   final List<String> hashtags;
-  final String musicMood;
-  final String estimatedRetention;
+  final List<String> recommendedMusic;
+  final List<String> retentionHooks;
 
   VideoScriptResponse({
+    this.id,
     required this.hook,
     required this.script,
     required this.ctaScript,
     required this.thumbnailTitles,
     required this.description,
     required this.hashtags,
-    required this.musicMood,
-    required this.estimatedRetention,
+    required this.recommendedMusic,
+    required this.retentionHooks,
   });
 
   /// Get total script text (for copying)
@@ -30,7 +32,9 @@ class VideoScriptResponse {
     final buffer = StringBuffer();
 
     // Hook
-    buffer.writeln('🎯 HOOK (${script.isNotEmpty ? script.first.timestamp : '0:00-0:05'})');
+    buffer.writeln(
+      '🎯 HOOK (${script.isNotEmpty ? script.first.timestamp : '0:00-0:05'})',
+    );
     buffer.writeln(hook);
     buffer.writeln();
 
@@ -57,72 +61,145 @@ class VideoScriptResponse {
   /// Get hashtags as space-separated string
   String get hashtagsText => hashtags.join(' ');
 
-  /// Get retention percentage (parse from estimatedRetention)
-  int get retentionPercentage {
-    try {
-      final match = RegExp(r'(\d+)%').firstMatch(estimatedRetention);
-      if (match != null) {
-        return int.parse(match.group(1)!);
-      }
-    } catch (e) {
-      // Ignore parsing errors
-    }
-    return 0;
-  }
+  /// Get recommended music as comma-separated string
+  String get musicText => recommendedMusic.join(', ');
 
-  /// Get retention reasoning (text after percentage)
-  String get retentionReasoning {
-    try {
-      final parts = estimatedRetention.split('-');
-      if (parts.length > 1) {
-        return parts.skip(1).join('-').trim();
-      }
-      // Remove percentage part
-      return estimatedRetention.replaceFirst(RegExp(r'\d+%\s*-?\s*'), '').trim();
-    } catch (e) {
-      return estimatedRetention;
-    }
-  }
+  /// Get retention hooks as comma-separated string
+  String get retentionHooksText => retentionHooks.join(', ');
+
+  /// Check if we have all recommendation data
+  bool get hasRecommendations =>
+      hashtags.isNotEmpty ||
+      recommendedMusic.isNotEmpty ||
+      retentionHooks.isNotEmpty;
 
   /// Create from JSON
   factory VideoScriptResponse.fromJson(Map<String, dynamic> json) {
-    // Handle nested output structure from backend
-    final output = json['output'] is String
-        ? jsonDecode(json['output']) as Map<String, dynamic>
-        : json['output'] as Map<String, dynamic>?;
+    print('\n═══ VideoScriptResponse.fromJson ═══');
+    print('JSON keys: ${json.keys.toList()}');
+    print('Has output: ${json.containsKey("output")}');
+    print('Has content: ${json.containsKey("content")}');
 
-    if (output == null) {
-      throw Exception('Invalid response: missing output field');
+    // Handle nested output structure from backend
+    Map<String, dynamic>? output;
+
+    if (json.containsKey('output')) {
+      print('Found output field');
+      output = json['output'] is String
+          ? jsonDecode(json['output']) as Map<String, dynamic>
+          : json['output'] as Map<String, dynamic>?;
+    } else if (json.containsKey('content')) {
+      print('Found content field instead of output - trying to parse');
+      // Backend returns content field, not output field
+      // Try to parse content as JSON if it's a string
+      final content = json['content'];
+      if (content is String) {
+        try {
+          output = jsonDecode(content) as Map<String, dynamic>;
+          print('Successfully parsed content as JSON');
+        } catch (e) {
+          print('Content is not JSON, treating as plain text: $e');
+          // Content is plain text, not structured JSON
+          output = null;
+        }
+      }
     }
 
+    if (output == null) {
+      print('❌ ERROR: No valid output or content field found');
+      print('Available fields: ${json.keys.join(", ")}');
+      throw Exception(
+        'Invalid response: missing output field. Available fields: ${json.keys.join(", ")}',
+      );
+    }
+
+    print('Output structure: ${output.keys.toList()}');
+
+    // Extract sections array (backend uses 'sections', not 'script')
+    final sections = output['sections'] as List? ?? [];
+    print('Parsing ${sections.length} sections from backend');
+
+    // Extract hook - could be in 'hook' field or first section with type 'hook'
+    String hookText = output['hook'] ?? '';
+    if (hookText.isEmpty && sections.isNotEmpty) {
+      final hookSection =
+          sections.firstWhere(
+                (s) => s['sectionType'] == 'hook',
+                orElse: () => {},
+              )
+              as Map<String, dynamic>?;
+      if (hookSection != null && hookSection.isNotEmpty) {
+        hookText = hookSection['script'] ?? '';
+      }
+    }
+
+    // Extract CTA - could be in 'callToAction' or section with type 'call_to_action'
+    String ctaText =
+        output['callToAction'] ??
+        output['call_to_action'] ??
+        output['ctaScript'] ??
+        output['cta_script'] ??
+        '';
+    if (ctaText.isEmpty && sections.isNotEmpty) {
+      final ctaSection =
+          sections.firstWhere(
+                (s) =>
+                    s['sectionType'] == 'call_to_action' ||
+                    s['sectionType'] == 'cta',
+                orElse: () => {},
+              )
+              as Map<String, dynamic>?;
+      if (ctaSection != null && ctaSection.isNotEmpty) {
+        ctaText = ctaSection['script'] ?? '';
+      }
+    }
+
+    // Convert backend sections to frontend ScriptSection objects
+    final scriptSections = sections.map((s) {
+      final section = s as Map<String, dynamic>;
+      return ScriptSection(
+        timestamp: section['timestamp'] ?? '0:00-0:00',
+        content: section['script'] ?? '', // Backend uses 'script' field
+        visualCue:
+            section['visualNotes'] ??
+            section['visualDescription'] ??
+            '', // Backend uses 'visualNotes' or 'visualDescription'
+      );
+    }).toList();
+
+    print('✅ Parsed ${scriptSections.length} script sections');
+
     return VideoScriptResponse(
-      hook: output['hook'] ?? '',
-      script: (output['script'] as List?)
-              ?.map((s) => ScriptSection.fromJson(s as Map<String, dynamic>))
-              .toList() ??
-          [],
-      ctaScript: output['ctaScript'] ?? output['cta_script'] ?? '',
+      id: json['id'] as String?, // Extract generation ID from response
+      hook: hookText,
+      script: scriptSections,
+      ctaScript: ctaText,
       thumbnailTitles: List<String>.from(
-          output['thumbnailTitles'] ?? output['thumbnail_titles'] ?? []),
+        output['thumbnailTitles'] ?? output['thumbnail_titles'] ?? [],
+      ),
       description: output['description'] ?? '',
       hashtags: List<String>.from(output['hashtags'] ?? []),
-      musicMood: output['musicMood'] ?? output['music_mood'] ?? '',
-      estimatedRetention:
-          output['estimatedRetention'] ?? output['estimated_retention'] ?? '',
+      recommendedMusic: List<String>.from(
+        output['recommendedMusic'] ?? output['recommended_music'] ?? [],
+      ),
+      retentionHooks: List<String>.from(
+        output['retentionHooks'] ?? output['retention_hooks'] ?? [],
+      ),
     );
   }
 
   /// Convert to JSON
   Map<String, dynamic> toJson() {
     return {
+      if (id != null) 'id': id,
       'hook': hook,
       'script': script.map((s) => s.toJson()).toList(),
       'cta_script': ctaScript,
       'thumbnail_titles': thumbnailTitles,
       'description': description,
       'hashtags': hashtags,
-      'music_mood': musicMood,
-      'estimated_retention': estimatedRetention,
+      'recommended_music': recommendedMusic,
+      'retention_hooks': retentionHooks,
     };
   }
 }

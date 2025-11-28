@@ -1,0 +1,59 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+.pytest_cache/
+.coverage
+htmlcov/
+*.cover
+.hypothesis/
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Testing
+tests/
+test_*.py
+conftest.py
+pytest.ini
+coverage.xml
+
+# Documentation
+*.md
+docs/
+frontend-handoff/
+
+# Logs
+*.log
+*.out
+
+# Firebase
+firebase-service-account.json
+
+# Other
+.git/
+.gitignore
+.DS_Store
+*.zip
+*.tar.gz

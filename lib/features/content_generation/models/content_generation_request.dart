@@ -103,9 +103,9 @@ class SocialMediaRequest {
 
   Map<String, dynamic> toJson() {
     return {
-      'platform': platform,
+      'platform': platform.toLowerCase(),
       'topic': topic,
-      'tone': tone,
+      'tone': tone.toLowerCase(),
       'include_hashtags': includeHashtags,
       'include_emoji': includeEmoji,
       'include_call_to_action': includeCallToAction,
@@ -132,16 +132,37 @@ class EmailCampaignRequest {
   });
 
   Map<String, dynamic> toJson() {
-    return {
-      'email_type': emailType,
-      'subject': subject,
-      if (targetAudience != null && targetAudience!.isNotEmpty)
-        'target_audience': targetAudience,
-      'main_message': mainMessage,
-      if (callToAction != null && callToAction!.isNotEmpty)
-        'call_to_action': callToAction,
-      'tone': tone,
+    // Backend expects: campaign_type, subject_line, product_service
+    final json = {
+      'campaign_type': _mapEmailTypeToCampaignType(emailType),
+      'subject_line': subject,
+      'product_service': mainMessage,
+      'tone': tone.toLowerCase(),
     };
+
+    print('\n═══ EMAIL REQUEST JSON ═══');
+    print(json);
+
+    return json;
+  }
+
+  String _mapEmailTypeToCampaignType(String emailType) {
+    // Map UI email types to backend campaign types
+    // Backend supports: promotional, newsletter, abandoned_cart, welcome, re_engagement
+    switch (emailType.toLowerCase()) {
+      case 'newsletter':
+        return 'newsletter';
+      case 'announcement':
+        return 'newsletter'; // Map announcement to newsletter
+      case 'promotional':
+        return 'promotional';
+      case 'welcome':
+        return 'welcome';
+      case 'reminder':
+        return 're_engagement'; // Map reminder to re_engagement
+      default:
+        return 'newsletter';
+    }
   }
 }
 

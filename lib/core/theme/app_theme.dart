@@ -103,6 +103,7 @@ class AppTheme {
   static ThemeData lightTheme = ThemeData(
     useMaterial3: true,
     brightness: Brightness.light,
+    fontFamily: 'Inter',
 
     colorScheme: ColorScheme.light(
       primary: primary,
@@ -263,26 +264,38 @@ class AppTheme {
 
     textTheme: TextTheme(
       displayLarge: TextStyle(
+        fontFamily: 'Inter',
         fontSize: FontSizes.displayLarge,
         fontWeight: FontWeight.bold,
         color: textPrimary,
       ),
       headlineLarge: TextStyle(
+        fontFamily: 'Inter',
         fontSize: FontSizes.h1,
         fontWeight: FontWeight.w600,
         color: textPrimary,
       ),
       headlineMedium: TextStyle(
+        fontFamily: 'Inter',
         fontSize: FontSizes.h2,
         fontWeight: FontWeight.w600,
         color: textPrimary,
       ),
-      bodyLarge: TextStyle(fontSize: FontSizes.bodyLarge, color: textPrimary),
+      bodyLarge: TextStyle(
+        fontFamily: 'Inter',
+        fontSize: FontSizes.bodyLarge,
+        color: textPrimary,
+      ),
       bodyMedium: TextStyle(
+        fontFamily: 'Inter',
         fontSize: FontSizes.bodyRegular,
         color: textPrimary,
       ),
-      bodySmall: TextStyle(fontSize: FontSizes.bodySmall, color: textSecondary),
+      bodySmall: TextStyle(
+        fontFamily: 'Inter',
+        fontSize: FontSizes.bodySmall,
+        color: textSecondary,
+      ),
     ),
 
     dividerTheme: DividerThemeData(
@@ -299,6 +312,7 @@ class AppTheme {
   static ThemeData darkTheme = ThemeData(
     useMaterial3: true,
     brightness: Brightness.dark,
+    fontFamily: 'Inter',
 
     colorScheme: ColorScheme.dark(
       primary: primary,
@@ -335,11 +349,13 @@ class AppTheme {
 
     textTheme: TextTheme(
       displayLarge: TextStyle(
+        fontFamily: 'Inter',
         fontSize: FontSizes.displayLarge,
         fontWeight: FontWeight.bold,
         color: Color(0xFFF9FAFB),
       ),
       bodyMedium: TextStyle(
+        fontFamily: 'Inter',
         fontSize: FontSizes.bodyRegular,
         color: Color(0xFFF9FAFB),
       ),

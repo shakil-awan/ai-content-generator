@@ -1,13 +1,86 @@
 import 'dart:async';
 
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
+import '../../../core/constants/api_constants.dart';
+import '../../../core/services/api_service.dart';
 import '../controllers/video_generation_controller.dart';
 import '../models/generated_video.dart';
+import '../models/video_from_script_request.dart';
 import '../models/video_generation_request.dart';
 import '../models/video_generation_response.dart';
+import '../models/video_job_response.dart';
 
 /// Video Generation Service
-/// Mock service that simulates backend API for automated video generation
+/// Service for generating videos from scripts using backend API
 class VideoGenerationService {
+  final ApiService _apiService;
+  final FlutterSecureStorage _storage;
+
+  VideoGenerationService({
+    ApiService? apiService,
+    FlutterSecureStorage? storage,
+  }) : _apiService = apiService ?? ApiService(),
+       _storage = storage ?? const FlutterSecureStorage();
+
+  /// Get auth token from secure storage and set it in ApiService
+  Future<void> _ensureAuthenticated() async {
+    final token = await _storage.read(key: AppConstants.tokenKey);
+    if (token != null && token.isNotEmpty) {
+      _apiService.setAuthToken(token);
+    } else {
+      throw Exception('Not authenticated. Please login first.');
+    }
+  }
+
+  /// Generate video from script using backend API
+  Future<VideoJobResponse> generateVideoFromScript(
+    VideoFromScriptRequest request,
+  ) async {
+    // Ensure user is authenticated
+    await _ensureAuthenticated();
+
+    try {
+      final response = await _apiService.post(
+        '/api/v1/generate/video-from-script',
+        body: request.toJson(),
+      );
+      return VideoJobResponse.fromJson(response);
+    } catch (e) {
+      throw Exception('Failed to generate video: $e');
+    }
+  }
+
+  /// Check video generation status
+  Future<VideoJobResponse> getVideoStatus(String videoJobId) async {
+    // Ensure user is authenticated
+    await _ensureAuthenticated();
+
+    try {
+      final response = await _apiService.get(
+        '/api/v1/generate/video-status/$videoJobId',
+      );
+      return VideoJobResponse.fromJson(response);
+    } catch (e) {
+      throw Exception('Failed to get video status: $e');
+    }
+  }
+
+  /// Poll for video completion with progress updates
+  Stream<VideoJobResponse> pollVideoStatus(String videoJobId) async* {
+    while (true) {
+      final status = await getVideoStatus(videoJobId);
+      yield status;
+
+      if (status.isCompleted || status.isFailed) {
+        break;
+      }
+
+      // Poll every 3 seconds
+      await Future.delayed(const Duration(seconds: 3));
+    }
+  }
+
   /// Generate video with progress stream (Mock implementation)
   /// In production, this will call the backend API and stream progress
   Stream<VideoGenerationProgress> generateVideoWithProgress(

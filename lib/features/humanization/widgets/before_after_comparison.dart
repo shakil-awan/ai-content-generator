@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:gap/gap.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -166,12 +167,43 @@ class BeforeAfterComparison extends StatelessWidget {
             ),
             padding: const EdgeInsets.all(16),
             child: SingleChildScrollView(
-              child: SelectableText(
-                content,
-                style: const TextStyle(
-                  fontSize: 14,
-                  height: 1.8,
-                  letterSpacing: 0.2,
+              child: MarkdownBody(
+                data: content,
+                selectable: true,
+                styleSheet: MarkdownStyleSheet(
+                  p: const TextStyle(
+                    fontSize: 14,
+                    height: 1.6,
+                    color: AppTheme.textPrimary,
+                  ),
+                  h1: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textPrimary,
+                  ),
+                  h2: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary,
+                  ),
+                  h3: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textPrimary,
+                  ),
+                  listBullet: const TextStyle(
+                    fontSize: 14,
+                    height: 1.5,
+                    color: AppTheme.textPrimary,
+                  ),
+                  blockquote: const TextStyle(
+                    fontStyle: FontStyle.italic,
+                    color: AppTheme.textSecondary,
+                  ),
+                  strong: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.textPrimary,
+                  ),
                 ),
               ),
             ),

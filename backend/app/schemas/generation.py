@@ -254,7 +254,8 @@ class SocialMediaGenerationRequest(BaseModel):
     topic: str = Field(..., min_length=3, max_length=200)
     tone: Tone = Tone.CASUAL
     include_hashtags: bool = True
-    include_emojis: bool = True
+    include_emoji: bool = True
+    include_call_to_action: bool = True
     character_limit: Optional[int] = None
     custom_settings: Optional[Dict[str, Any]] = Field(default_factory=dict)
     
@@ -265,7 +266,8 @@ class SocialMediaGenerationRequest(BaseModel):
                 "topic": "New product launch announcement",
                 "tone": "friendly",
                 "include_hashtags": True,
-                "include_emojis": True
+                "include_emoji": True,
+                "include_call_to_action": True
             }
         }
 
@@ -423,6 +425,7 @@ class GenerationResponse(BaseModel):
     is_content_refresh: bool = False
     original_content_id: Optional[str] = None
     video_script_settings: Optional[VideoScriptSettings] = None
+    output: Optional[Dict[str, Any]] = Field(None, description="Structured output for video scripts (hook, script sections, etc)")
     generation_time: float
     model_used: str
     exported_to: List[str] = Field(default_factory=list)
@@ -496,5 +499,102 @@ class ContentRefreshRequest(BaseModel):
             "example": {
                 "original_generation_id": "gen_12345",
                 "custom_instructions": "Update statistics with 2025 data"
+            }
+        }
+
+# ==================== VIDEO GENERATION FROM SCRIPT SCHEMAS ====================
+
+class VideoFromScriptRequest(BaseModel):
+    """Request to generate video from existing script"""
+    generation_id: str = Field(..., description="ID of the script generation to convert to video")
+    voice_style: Optional[str] = Field(
+        default="natural",
+        description="Voice tone style (natural, energetic, calm, professional)"
+    )
+    music_mood: Optional[str] = Field(
+        default="upbeat",
+        description="Background music mood (upbeat, calm, dramatic, none)"
+    )
+    video_style: Optional[str] = Field(
+        default="modern",
+        description="Visual style (modern, cinematic, animated, minimal)"
+    )
+    include_captions: bool = Field(
+        default=True,
+        description="Whether to include captions overlay on the video"
+    )
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "generation_id": "gen_abc123",
+                "voice_style": "natural",
+                "music_mood": "upbeat",
+                "video_style": "modern",
+                "include_captions": True
+            }
+        }
+
+class VideoGenerationJobResponse(BaseModel):
+    """Response for video generation job"""
+    id: str = Field(..., description="Video generation job ID")
+    generation_id: str = Field(..., description="Original script generation ID")
+    user_id: str
+    status: str = Field(..., description="Status: processing, completed, failed")
+    progress: int = Field(default=0, ge=0, le=100, description="Progress percentage (0-100)")
+    video_url: Optional[str] = Field(None, description="URL to generated video (when completed)")
+    duration: int = Field(..., description="Video duration in seconds")
+    processing_time: float = Field(default=0.0, description="Time taken to generate video in seconds")
+    cost: float = Field(default=0.0, description="Cost of video generation in USD")
+    error_message: Optional[str] = Field(None, description="Error message if failed")
+    metadata: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Additional metadata (platform, style, model, etc.)"
+    )
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+        json_schema_extra = {
+            "example": {
+                "id": "video_xyz789",
+                "generation_id": "gen_abc123",
+                "user_id": "user_123",
+                "status": "completed",
+                "progress": 100,
+                "video_url": "https://storage.googleapis.com/videos/abc123.mp4",
+                "duration": 60,
+                "processing_time": 90.5,
+                "cost": 0.25,
+                "error_message": None,
+                "metadata": {
+                    "platform": "youtube",
+                    "video_style": "modern",
+                    "model": "zeroscope-v2-xl"
+                },
+                "created_at": "2025-11-28T10:00:00Z",
+                "updated_at": "2025-11-28T10:01:30Z"
+            }
+        }
+
+class VideoStatusResponse(BaseModel):
+    """Response for video generation status check"""
+    id: str
+    status: str
+    progress: int = Field(ge=0, le=100)
+    video_url: Optional[str] = None
+    processing_time: Optional[float] = None
+    error_message: Optional[str] = None
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "id": "video_xyz789",
+                "status": "processing",
+                "progress": 65,
+                "video_url": None,
+                "processing_time": 45.2,
+                "error_message": None
             }
         }

@@ -1,12 +1,11 @@
+import '../config/environment.dart';
+
 /// API Endpoints Configuration
 /// Central location for all API endpoints, headers, and base URL
 class ApiEndpoints {
   // ==================== Base Configuration ====================
-  /// Base URL for all API requests
-  static const String baseUrl = String.fromEnvironment(
-    'API_URL',
-    defaultValue: 'http://127.0.0.1:8000',
-  );
+  /// Base URL for all API requests (uses Environment config)
+  static String get baseUrl => Environment.apiUrl;
 
   /// API Version prefix
   static const String apiVersion = '/api/v1';
@@ -49,6 +48,10 @@ class ApiEndpoints {
   static const String generateVideo = '$generateBase/video-script';
   static const String generateImage = '$generateBase/image';
   static const String generateImageBatch = '$generateBase/image/batch';
+  static const String generateVideoFromScript =
+      '$generateBase/video-from-script';
+  static String getVideoStatus(String videoJobId) =>
+      '$generateBase/video-status/$videoJobId';
 
   // Legacy endpoints (for compatibility)
   static const String generationBase = '$apiVersion/generation';
@@ -65,8 +68,11 @@ class ApiEndpoints {
       '$humanizeBase/detect/$generationId';
 
   // ==================== Fact Checking ====================
-  static const String factCheckBase = '$apiVersion/generate';
-  static const String factCheck = '$factCheckBase/fact-check';
+  /// Fact-checking is integrated with content generation
+  /// The enable_fact_check parameter in generation requests triggers backend fact-checking
+  /// Results are returned in the factCheckResults field of the generation response
+  static const String factCheckBase = '$apiVersion/fact-check';
+  static const String factCheck = '$factCheckBase/verify';
 
   // ==================== Quality Scoring ====================
   static const String qualityBase = '$apiVersion/quality';

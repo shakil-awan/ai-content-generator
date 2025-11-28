@@ -254,7 +254,8 @@ Return ONLY the humanized content, no explanations."""
                 logger.info("Using Gemini for humanization...")
                 humanized_content = await self._humanize_with_gemini(content, level, instructions, fact_instruction, content_type)
                 tokens_used = 0  # Gemini doesn't provide token count
-                humanization_model = 'gemini-2.0-flash-exp'
+                from app.config import ModelConfig
+                humanization_model = ModelConfig.HUMANIZATION_MODEL
                 logger.info(f"Gemini humanization complete: {len(humanized_content)} chars")
             except Exception as gemini_error:
                 logger.warning(f"Gemini humanization failed: {gemini_error}, trying OpenAI fallback...")
@@ -445,8 +446,10 @@ Return ONLY the humanized content, no explanations."""
             # Use the detection API from the detection results
             detection_api = detection_after.get('detectionApi', 'gemini')
             
+            from app.config import ModelConfig
+            
             logger.info(f"Gemini humanization result: {ai_score_before} → {ai_score_after} (improvement: {improvement})")
-            logger.info(f"Models used - Humanization: gemini-2.0-flash-exp, Detection: {detection_api}")
+            logger.info(f"Models used - Humanization: {ModelConfig.HUMANIZATION_MODEL}, Detection: {detection_api}")
             
             return {
                 'humanizedContent': humanized_content,
@@ -456,7 +459,7 @@ Return ONLY the humanized content, no explanations."""
                 'improvementPercentage': (improvement / ai_score_before * 100) if ai_score_before > 0 else 0,
                 'level': level,
                 'detectionApi': detection_api,
-                'humanizationModel': 'gemini-2.0-flash-exp',
+                'humanizationModel': ModelConfig.HUMANIZATION_MODEL,
                 'processingTime': processing_time,
                 'tokensUsed': 0,  # Gemini doesn't provide token count in same way
                 'beforeAnalysis': {

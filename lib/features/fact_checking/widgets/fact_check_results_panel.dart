@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:gap/gap.dart';
-import 'package:get/get.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/custom_buttons.dart';
@@ -9,16 +8,9 @@ import '../models/fact_check_results.dart';
 import 'enhanced_claim_card.dart';
 import 'fact_check_loading.dart';
 
-/// Fact-Check Results Panel Controller
-class FactCheckResultsPanelController extends GetxController {
-  final isExpanded = false.obs;
-
-  void toggleExpanded() => isExpanded.value = !isExpanded.value;
-}
-
 /// Fact-Check Results Panel Widget
 /// Displays fact-check results after content generation
-class FactCheckResultsPanel extends StatelessWidget {
+class FactCheckResultsPanel extends StatefulWidget {
   final FactCheckResults? results;
   final bool isLoading;
   final String? errorMessage;
@@ -39,34 +31,45 @@ class FactCheckResultsPanel extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final controller = Get.put(FactCheckResultsPanelController());
+  State<FactCheckResultsPanel> createState() => _FactCheckResultsPanelState();
+}
 
+class _FactCheckResultsPanelState extends State<FactCheckResultsPanel> {
+  bool _isExpanded = false;
+
+  void _toggleExpanded() {
+    setState(() {
+      _isExpanded = !_isExpanded;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     // Loading state
-    if (isLoading) {
+    if (widget.isLoading) {
       return FactCheckLoadingIndicator(
-        currentClaim: currentClaim,
-        totalClaims: totalClaims,
+        currentClaim: widget.currentClaim,
+        totalClaims: widget.totalClaims,
       );
     }
 
     // Error state
-    if (errorMessage != null && errorMessage!.isNotEmpty) {
+    if (widget.errorMessage != null && widget.errorMessage!.isNotEmpty) {
       return _buildErrorState();
     }
 
     // No results
-    if (results == null) {
+    if (widget.results == null) {
       return const SizedBox.shrink();
     }
 
     // Empty state (no claims found)
-    if (results!.claims.isEmpty) {
+    if (widget.results!.claims.isEmpty) {
       return _buildEmptyState();
     }
 
     // Success state with results
-    return _buildSuccessState(controller);
+    return _buildSuccessState(widget.results!);
   }
 
   /// Build error state
@@ -90,22 +93,25 @@ class FactCheckResultsPanel extends StatelessWidget {
           ),
           const Gap(8),
           BodyText(
-            errorMessage ?? 'Unable to verify claims',
+            widget.errorMessage ?? 'Unable to verify claims',
             color: AppTheme.textSecondary,
           ),
           const Gap(16),
           Row(
             children: [
-              if (onRetry != null)
+              if (widget.onRetry != null)
                 Expanded(
-                  child: SecondaryButton(text: 'Retry', onPressed: onRetry),
+                  child: SecondaryButton(
+                    text: 'Retry',
+                    onPressed: widget.onRetry,
+                  ),
                 ),
-              if (onRetry != null && onSkip != null) const Gap(8),
-              if (onSkip != null)
+              if (widget.onRetry != null && widget.onSkip != null) const Gap(8),
+              if (widget.onSkip != null)
                 Expanded(
                   child: SecondaryButton(
                     text: 'Skip Fact-Check',
-                    onPressed: onSkip,
+                    onPressed: widget.onSkip,
                   ),
                 ),
             ],
@@ -150,9 +156,7 @@ class FactCheckResultsPanel extends StatelessWidget {
   }
 
   /// Build success state with results
-  Widget _buildSuccessState(FactCheckResultsPanelController controller) {
-    final resultsData = results!;
-
+  Widget _buildSuccessState(FactCheckResults resultsData) {
     return Container(
       decoration: BoxDecoration(
         color: AppTheme.bgPrimary,
@@ -163,7 +167,7 @@ class FactCheckResultsPanel extends StatelessWidget {
         children: [
           // Header (always visible)
           InkWell(
-            onTap: controller.toggleExpanded,
+            onTap: _toggleExpanded,
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -183,13 +187,9 @@ class FactCheckResultsPanel extends StatelessWidget {
                           'Fact-Check Complete (${resultsData.totalClaims} claim${resultsData.totalClaims != 1 ? 's' : ''} verified)',
                         ),
                       ),
-                      Obx(
-                        () => Icon(
-                          controller.isExpanded.value
-                              ? Icons.expand_less
-                              : Icons.expand_more,
-                          color: AppTheme.textSecondary,
-                        ),
+                      Icon(
+                        _isExpanded ? Icons.expand_less : Icons.expand_more,
+                        color: AppTheme.textSecondary,
                       ),
                     ],
                   ),
@@ -245,14 +245,10 @@ class FactCheckResultsPanel extends StatelessWidget {
                   const Gap(12),
 
                   // View details button
-                  Obx(
-                    () => BodyText(
-                      controller.isExpanded.value
-                          ? '▲ Hide Details'
-                          : '▼ View Details',
-                      color: AppTheme.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
+                  BodyText(
+                    _isExpanded ? '▲ Hide Details' : '▼ View Details',
+                    color: AppTheme.primary,
+                    fontWeight: FontWeight.w600,
                   ),
                 ],
               ),
@@ -260,54 +256,56 @@ class FactCheckResultsPanel extends StatelessWidget {
           ),
 
           // Expanded content (claims list)
-          Obx(
-            () => controller.isExpanded.value
-                ? Column(
+          AnimatedCrossFade(
+            firstChild: const SizedBox.shrink(),
+            secondChild: Column(
+              children: [
+                const Divider(height: 1),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
                     children: [
-                      const Divider(height: 1),
-                      Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          children: [
-                            ...resultsData.claims.asMap().entries.map((entry) {
-                              return EnhancedClaimCard(
-                                claim: entry.value,
-                                claimNumber: entry.key + 1,
-                              );
-                            }),
-                            // Google Search API Transparency Footer
-                            if (resultsData.totalSearchesUsed > 0) ...[
+                      ...resultsData.claims.asMap().entries.map((entry) {
+                        return EnhancedClaimCard(
+                          claim: entry.value,
+                          claimNumber: entry.key + 1,
+                        );
+                      }),
+                      if (resultsData.totalSearchesUsed > 0) ...[
+                        const Gap(8),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF5F5F5),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.info_outline,
+                                size: 14,
+                                color: Color(0xFF757575),
+                              ),
                               const Gap(8),
-                              Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF5F5F5),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.info_outline,
-                                      size: 14,
-                                      color: Color(0xFF757575),
-                                    ),
-                                    const Gap(8),
-                                    Expanded(
-                                      child: BodyTextSmall(
-                                        'Verified using ${resultsData.totalSearchesUsed} Google Custom Search API queries (100 free/day)',
-                                        color: const Color(0xFF757575),
-                                      ),
-                                    ),
-                                  ],
+                              Expanded(
+                                child: BodyTextSmall(
+                                  'Verified using ${resultsData.totalSearchesUsed} Google Custom Search API queries (100 free/day)',
+                                  color: const Color(0xFF757575),
                                 ),
                               ),
                             ],
-                          ],
+                          ),
                         ),
-                      ),
+                      ],
                     ],
-                  )
-                : const SizedBox.shrink(),
+                  ),
+                ),
+              ],
+            ),
+            crossFadeState: _isExpanded
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 200),
           ),
         ],
       ),

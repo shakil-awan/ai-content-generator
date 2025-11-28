@@ -45,7 +45,8 @@ class GeminiQualityAnalyzer:
         genai.configure(api_key=api_key)
         
         # Use Gemini 2.0 Flash - fast and cheap
-        self.model = genai.GenerativeModel('gemini-2.0-flash-exp')
+        from app.config import ModelConfig
+        self.model = genai.GenerativeModel(ModelConfig.QUALITY_ANALYZER_MODEL)
         
         logger.info("✨ Gemini Quality Analyzer initialized with 2.0 Flash")
     

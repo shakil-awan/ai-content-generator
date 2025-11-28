@@ -145,6 +145,28 @@ class FactCheckConfidence:
     MEDIUM = 60  # Yellow flag
     LOW = 0  # Red flag
 
+# ==================== FACT CHECK AUTHORITY LEVELS ====================
+class FactCheckAuthorityLevel:
+    """Source authority classifications for fact-checking"""
+    GOVERNMENT = "government"  # .gov, NASA, NOAA, EPA, CDC, NIH, USGS
+    ACADEMIC = "academic"  # .edu, universities, research institutions
+    ORGANIZATION = "organization"  # WHO, UN, World Bank, IEEE
+    NEWS = "news"  # Reuters, BBC, NYT, WSJ, AP
+    GENERAL = "general"  # All other sources
+
+# ==================== FACT CHECK LIMITS ====================
+class FactCheckLimits:
+    """Fact-checking usage limits per plan"""
+    FREE_FACT_CHECKS = 3  # 3 fact-checks per month
+    HOBBY_FACT_CHECKS = 10  # 10 fact-checks per month
+    PRO_FACT_CHECKS = 50  # 50 fact-checks per month
+    ENTERPRISE_FACT_CHECKS = 999999  # Unlimited
+    
+    # Google Search API limits
+    GOOGLE_SEARCH_FREE_DAILY = 100  # 100 free searches per day
+    SEARCHES_PER_CLAIM = 5  # 5 searches to verify each claim
+    MAX_CLAIMS_PER_CHECK = 3  # Verify top 3 claims only (budget optimization)
+
 # ==================== USER ROLES ====================
 class UserRole:
     """User roles for team management"""

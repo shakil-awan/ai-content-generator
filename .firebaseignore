@@ -1,0 +1,12 @@
+.firebase/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+pubspec.lock
+.idea/
+.vscode/
+coverage/
+test_driver/
+.env
+.env.local

@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../models/batch_request.dart';
@@ -6,12 +7,21 @@ import '../models/image_request.dart';
 import '../models/image_response.dart';
 import '../services/image_generation_service.dart';
 import '../services/image_storage_service.dart';
+import '../utils/image_test_data.dart';
 
 /// Image Generation Controller
 /// Manages state for image generation (single and batch)
 class ImageGenerationController extends GetxController {
   final ImageGenerationService _generationService = ImageGenerationService();
   final ImageStorageService _storageService = ImageStorageService();
+  final ImageGenerationTestSeeder? _testSeeder;
+
+  ImageGenerationController({ImageGenerationTestSeeder? testSeeder})
+    : _testSeeder =
+          testSeeder ??
+          (ImageGenerationTestSeeder.isEnabled
+              ? ImageGenerationTestSeeder()
+              : null);
 
   // Single image generation state
   final imageResponse = Rxn<ImageResponse>();
@@ -74,6 +84,7 @@ class ImageGenerationController extends GetxController {
   void onInit() {
     super.onInit();
     loadQuota();
+    _maybeApplyTestSeed(initial: true);
   }
 
   /// Load quota from storage stats
@@ -178,6 +189,7 @@ class ImageGenerationController extends GetxController {
       batchProgress.value = 0.0;
       batchResults.clear();
       errorMessage.value = '';
+      currentBatchIndex.value = 0;
 
       final request = BatchRequest(
         prompts: batchPrompts.toList(),
@@ -187,20 +199,14 @@ class ImageGenerationController extends GetxController {
 
       if (!request.isValid) {
         errorMessage.value = request.validationError ?? 'Invalid batch request';
+        isBatchGenerating.value = false;
         return;
       }
 
-      // Simulate progress updates
-      final totalImages = request.imageCount;
-      for (var i = 0; i < totalImages; i++) {
-        currentBatchIndex.value = i;
-        batchProgress.value = (i + 1) / totalImages;
-        await Future.delayed(const Duration(milliseconds: 200));
-      }
-
-      // Generate all images
+      // Generate all images (progress updates handled by service/backend)
       final responses = await _generationService.generateBatch(request);
       batchResults.value = responses;
+      batchProgress.value = 1.0;
 
       // Update quota
       imagesUsed.value += responses.length;
@@ -221,12 +227,25 @@ class ImageGenerationController extends GetxController {
         await _storageService.addImage(generatedImage);
       }
 
+      // Wait a moment for user to see completion
+      await Future.delayed(const Duration(milliseconds: 1500));
+
+      // Close modal automatically
+      if (Get.isDialogOpen ?? false) {
+        Get.back();
+      }
+
       Get.snackbar(
         'Success! 🎉',
-        'Generated ${responses.length} images',
+        'Successfully generated ${responses.length} images!',
         snackPosition: SnackPosition.BOTTOM,
         duration: const Duration(seconds: 3),
+        backgroundColor: const Color(0xFF10B981),
+        colorText: Colors.white,
       );
+
+      // Clear batch prompts after successful generation
+      clearBatch();
     } catch (e) {
       errorMessage.value = 'Failed to generate batch: ${e.toString()}';
       Get.snackbar(
@@ -284,5 +303,33 @@ class ImageGenerationController extends GetxController {
     batchPrompts.clear();
     batchResults.clear();
     batchProgress.value = 0.0;
+  }
+
+  /// Dev-only helper to cycle forward through curated sample inputs.
+  void loadNextSeed() {
+    final seeder = _testSeeder;
+    if (seeder == null) return;
+    _applySeed(seeder.nextSeed());
+  }
+
+  /// Dev-only helper to cycle backward through curated sample inputs.
+  void loadPreviousSeed() {
+    final seeder = _testSeeder;
+    if (seeder == null) return;
+    _applySeed(seeder.previousSeed());
+  }
+
+  void _maybeApplyTestSeed({bool initial = false}) {
+    final seeder = _testSeeder;
+    if (seeder == null) return;
+    final seed = initial ? seeder.initialSeed() : seeder.nextSeed();
+    _applySeed(seed);
+  }
+
+  void _applySeed(ImageTestData seed) {
+    prompt.value = seed.prompt;
+    style.value = seed.style;
+    aspectRatio.value = seed.aspectRatio;
+    enhancePrompt.value = seed.enhancePrompt;
   }
 }

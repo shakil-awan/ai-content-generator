@@ -1,0 +1,106 @@
+# Render.com Blueprint for AI Content Generator Backend
+# Docs: https://render.com/docs/blueprint-spec
+
+services:
+  # FastAPI Backend Service
+  - type: web
+    name: ai-content-generator-api
+    runtime: docker
+    region: oregon
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: ./
+    healthCheckPath: /api/v1/health
+    branch: main
+
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+
+      - key: DEBUG
+        value: "false"
+
+      - key: API_PORT
+        value: 8001
+
+      - key: API_PREFIX
+        value: /api/v1
+
+      # CORS - Update with your Firebase Hosting URL after deployment
+      - key: CORS_ORIGINS
+        value: https://ai-content-generator-7ec6a.web.app,https://ai-content-generator-7ec6a.firebaseapp.com
+
+      # AI API Keys (Add via Render Dashboard - keep these secret)
+      - key: GEMINI_API_KEY
+        sync: false # Set manually in dashboard
+
+      - key: OPENAI_API_KEY
+        sync: false
+
+      - key: REPLICATE_API_KEY
+        sync: false
+
+      - key: ANTHROPIC_API_KEY
+        sync: false
+
+      # Firebase Configuration
+      - key: FIREBASE_PROJECT_ID
+        value: ai-content-generator-7ec6a
+
+      - key: FIREBASE_STORAGE_BUCKET
+        value: ai-content-generator-7ec6a.appspot.com
+
+      # Firebase Service Account (Add as Secret File in Render)
+      - key: FIREBASE_PRIVATE_KEY_PATH
+        value: /etc/secrets/firebase-service-account.json
+
+      # Stripe Configuration (Add via Render Dashboard)
+      - key: STRIPE_SECRET_KEY
+        sync: false
+
+      - key: STRIPE_PUBLIC_KEY
+        sync: false
+
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+
+      # JWT Configuration
+      - key: JWT_SECRET_KEY
+        generateValue: true # Auto-generates secure key
+
+      - key: JWT_ALGORITHM
+        value: HS256
+
+      - key: JWT_EXPIRATION_MINUTES
+        value: 1440
+
+      # Redis (Use Render Redis or external service)
+      - key: REDIS_HOST
+        fromService:
+          type: redis
+          name: ai-content-generator-redis
+          property: host
+
+      - key: REDIS_PORT
+        fromService:
+          type: redis
+          name: ai-content-generator-redis
+          property: port
+
+      - key: ENABLE_CACHE
+        value: "true"
+
+      # Rate Limiting
+      - key: RATE_LIMIT_ENABLED
+        value: "true"
+
+      # Logging
+      - key: LOG_LEVEL
+        value: INFO
+
+  # Redis Service (Optional - Free tier)
+  - type: redis
+    name: ai-content-generator-redis
+    plan: free # Free tier: 25MB storage
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList: [] # Empty = allow from web service only

@@ -168,9 +168,19 @@ class ContentGenerationService {
   Future<ContentGenerationResponse> generateEmail({
     required EmailCampaignRequest request,
   }) async {
+    print('\n═══ GENERATING EMAIL CAMPAIGN ═══');
+    print('Email Type: ${request.emailType}');
+    print('Subject: ${request.subject}');
+    print('Message: ${request.mainMessage}');
+    print('Tone: ${request.tone}');
+
+    final requestJson = request.toJson();
+    print('\n═══ REQUEST JSON TO BACKEND ═══');
+    print(requestJson);
+
     return generateContent(
       contentType: ContentType.email,
-      parameters: request.toJson(),
+      parameters: requestJson,
     );
   }
 

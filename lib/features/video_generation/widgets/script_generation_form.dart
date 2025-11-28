@@ -217,6 +217,44 @@ class ScriptGenerationForm extends StatelessWidget {
         ),
         const Gap(32),
 
+        // Error message display
+        Obx(() {
+          if (controller.errorMessage.value.isNotEmpty) {
+            return Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.error.withValues(alpha: 0.1),
+                    borderRadius: AppTheme.borderRadiusMD,
+                    border: Border.all(
+                      color: AppTheme.error.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.error_outline,
+                        color: AppTheme.error,
+                        size: 20,
+                      ),
+                      const Gap(8),
+                      Expanded(
+                        child: BodyTextSmall(
+                          controller.errorMessage.value,
+                          color: AppTheme.error,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Gap(16),
+              ],
+            );
+          }
+          return const SizedBox.shrink();
+        }),
+
         // Generate button
         Obx(
           () => PrimaryButton(

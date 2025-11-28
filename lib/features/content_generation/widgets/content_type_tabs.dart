@@ -22,52 +22,43 @@ class ContentTypeTabs extends GetView<ContentGenerationController> {
 
   Widget _buildTabs(BuildContext context) {
     return Obx(
-      () => SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: ContentType.values.map((type) {
-            final isSelected = controller.selectedContentType.value == type;
-            return Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: InkWell(
-                onTap: () => controller.selectContentType(type),
-                borderRadius: AppTheme.borderRadiusMD,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isSelected ? AppTheme.primary : Colors.transparent,
-                    border: Border.all(
-                      color: isSelected ? AppTheme.primary : AppTheme.border,
-                      width: isSelected ? 2 : 1,
-                    ),
-                    borderRadius: AppTheme.borderRadiusMD,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        type.icon,
-                        style: const TextStyle(fontSize: 20),
-                      ),
-                      const Gap(8),
-                      BodyText(
-                        type.displayName,
-                        color: isSelected
-                            ? AppTheme.textOnPrimary
-                            : AppTheme.textPrimary,
-                        fontWeight:
-                            isSelected ? FontWeight.w600 : FontWeight.normal,
-                      ),
-                    ],
-                  ),
+      () => Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: ContentType.values.map((type) {
+          final isSelected = controller.selectedContentType.value == type;
+          return InkWell(
+            onTap: () => controller.selectContentType(type),
+            borderRadius: AppTheme.borderRadiusMD,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: isSelected ? AppTheme.primary : Colors.transparent,
+                border: Border.all(
+                  color: isSelected ? AppTheme.primary : AppTheme.border,
+                  width: isSelected ? 2 : 1,
                 ),
+                borderRadius: AppTheme.borderRadiusMD,
               ),
-            );
-          }).toList(),
-        ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(type.icon, style: const TextStyle(fontSize: 20)),
+                  const Gap(8),
+                  BodyText(
+                    type.displayName,
+                    color: isSelected
+                        ? AppTheme.textOnPrimary
+                        : AppTheme.textPrimary,
+                    fontWeight: isSelected
+                        ? FontWeight.w600
+                        : FontWeight.normal,
+                  ),
+                ],
+              ),
+            ),
+          );
+        }).toList(),
       ),
     );
   }
@@ -89,10 +80,7 @@ class ContentTypeTabs extends GetView<ContentGenerationController> {
               value: type,
               child: Row(
                 children: [
-                  Text(
-                    type.icon,
-                    style: const TextStyle(fontSize: 20),
-                  ),
+                  Text(type.icon, style: const TextStyle(fontSize: 20)),
                   const Gap(12),
                   BodyText(type.displayName),
                 ],

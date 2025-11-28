@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:go_router/go_router.dart';
+import 'package:printing/printing.dart';
 
 import '../../../core/routing/app_router.dart';
 import '../../quality_guarantee/models/quality_score.dart' as qm;
@@ -9,19 +10,43 @@ import '../models/content_generation_request.dart';
 import '../models/content_generation_response.dart';
 import '../models/content_type.dart';
 import '../services/content_generation_service.dart';
+import '../utils/content_generation_test_data.dart';
+import '../utils/content_pdf_exporter.dart';
 
 /// Content Generation Controller
 /// Manages state for content generation feature
 class ContentGenerationController extends GetxController {
   final ContentGenerationService _service;
+  final ContentPdfExporter _pdfExporter;
+  final ContentGenerationTestSeeder? _testSeeder;
+  static const List<String> _allowedWordCounts = [
+    '500',
+    '1000',
+    '1500',
+    '2000',
+    '2500',
+    '3000',
+    '3500',
+    '4000',
+  ];
 
-  ContentGenerationController(this._service);
+  ContentGenerationController(
+    this._service, {
+    ContentPdfExporter? pdfExporter,
+    ContentGenerationTestSeeder? testSeeder,
+  }) : _pdfExporter = pdfExporter ?? ContentPdfExporter(),
+       _testSeeder =
+           testSeeder ??
+           (ContentGenerationTestSeeder.isEnabled
+               ? ContentGenerationTestSeeder()
+               : null);
 
   // Observable state
   final selectedContentType = ContentType.blog.obs;
   final isGenerating = false.obs;
   final generatedContent = Rxn<ContentGenerationResponse>();
   final errorMessage = ''.obs;
+  final isExportingPdf = false.obs;
 
   // Quality scoring state
   final currentQualityScore = Rxn<qm.QualityScore>();
@@ -82,6 +107,13 @@ class ContentGenerationController extends GetxController {
 
   bool get canGenerateVideo =>
       videoTopicController.text.length >= 5 && !isGenerating.value;
+
+  @override
+  void onInit() {
+    super.onInit();
+    _maybeApplyTestSeed(initial: true);
+    _enforceSocialIncludeDefaults();
+  }
 
   @override
   void onClose() {
@@ -174,7 +206,7 @@ class ContentGenerationController extends GetxController {
   }
 
   /// Generate Social Media Post
-  Future<void> generateSocialPost() async {
+  Future<void> generateSocialPost([BuildContext? context]) async {
     if (!canGenerateSocial) return;
 
     isGenerating.value = true;
@@ -197,10 +229,10 @@ class ContentGenerationController extends GetxController {
       // Extract quality score from backend response (already included)
       _extractQualityScoreFromResponse(response);
 
-      // Navigate using GoRouter
-      final context = Get.context;
-      if (context != null && context.mounted) {
-        context.go(AppRouter.generateResults);
+      // Navigate using GoRouter with BuildContext
+      final navContext = context ?? Get.context;
+      if (navContext != null && navContext.mounted) {
+        navContext.go(AppRouter.generateResults);
       }
     } catch (e) {
       errorMessage.value = 'Failed to generate social post: $e';
@@ -210,8 +242,14 @@ class ContentGenerationController extends GetxController {
   }
 
   /// Generate Email Campaign
-  Future<void> generateEmail() async {
+  Future<void> generateEmail([BuildContext? context]) async {
     if (!canGenerateEmail) return;
+
+    print('\n═══ STARTING EMAIL GENERATION ═══');
+    print('Email Type: ${emailType.value}');
+    print('Subject: ${emailSubjectController.text}');
+    print('Message: ${emailMessageController.text}');
+    print('Tone: ${emailTone.value}');
 
     isGenerating.value = true;
     errorMessage.value = '';
@@ -230,27 +268,40 @@ class ContentGenerationController extends GetxController {
         tone: emailTone.value,
       );
 
+      print('\n═══ CALLING SERVICE ═══');
       final response = await _service.generateEmail(request: request);
 
+      print('\n═══ EMAIL GENERATED SUCCESSFULLY ═══');
       generatedContent.value = response;
 
       // Extract quality score from backend response (already included)
       _extractQualityScoreFromResponse(response);
 
-      // Navigate using GoRouter
-      final context = Get.context;
-      if (context != null && context.mounted) {
-        context.go(AppRouter.generateResults);
+      // Navigate using GoRouter with BuildContext
+      final navContext = context ?? Get.context;
+      if (navContext != null && navContext.mounted) {
+        navContext.go(AppRouter.generateResults);
       }
     } catch (e) {
+      print('\n═══ EMAIL GENERATION ERROR ═══');
+      print(e);
       errorMessage.value = 'Failed to generate email: $e';
+
+      // Show error snackbar
+      Get.snackbar(
+        'Generation Failed',
+        'Failed to generate email: $e',
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 5),
+      );
     } finally {
+      print('\n═══ SETTING isGenerating = false ═══');
       isGenerating.value = false;
     }
   }
 
   /// Generate Video Script
-  Future<void> generateVideoScript() async {
+  Future<void> generateVideoScript([BuildContext? context]) async {
     if (!canGenerateVideo) return;
 
     isGenerating.value = true;
@@ -274,13 +325,21 @@ class ContentGenerationController extends GetxController {
       // Extract quality score from backend response (already included)
       _extractQualityScoreFromResponse(response);
 
-      // Navigate using GoRouter
-      final context = Get.context;
-      if (context != null && context.mounted) {
-        context.go(AppRouter.generateResults);
+      // Navigate using GoRouter with BuildContext
+      final navContext = context ?? Get.context;
+      if (navContext != null && navContext.mounted) {
+        navContext.go(AppRouter.generateResults);
       }
     } catch (e) {
       errorMessage.value = 'Failed to generate video script: $e';
+
+      // Show error snackbar
+      Get.snackbar(
+        'Generation Failed',
+        'Failed to generate video script: $e',
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 5),
+      );
     } finally {
       isGenerating.value = false;
     }
@@ -383,21 +442,21 @@ class ContentGenerationController extends GetxController {
   }
 
   /// Regenerate current content
-  Future<void> regenerateContent() async {
+  Future<void> regenerateContent([BuildContext? context]) async {
     regenerationAttempts.value++;
 
     switch (selectedContentType.value) {
       case ContentType.blog:
-        await generateBlogPost();
+        await generateBlogPost(context);
         break;
       case ContentType.social:
-        await generateSocialPost();
+        await generateSocialPost(context);
         break;
       case ContentType.email:
-        await generateEmail();
+        await generateEmail(context);
         break;
       case ContentType.video:
-        await generateVideoScript();
+        await generateVideoScript(context);
         break;
       default:
         errorMessage.value = 'Content type not supported yet';
@@ -409,35 +468,168 @@ class ContentGenerationController extends GetxController {
     regenerationAttempts.value = 0;
   }
 
-  /// Save content to history
-  Future<void> saveContent() async {
-    if (generatedContent.value == null) return;
-
-    // TODO: Implement save to Firebase
-    // Success message will be shown in UI
-  }
-
   /// Export content as different formats
   Future<void> exportContent(String format) async {
     if (generatedContent.value == null) return;
 
-    // TODO: Implement export functionality
-    // Success message will be shown in UI
+    switch (format.toLowerCase()) {
+      case 'pdf':
+        await exportContentAsPdf();
+        break;
+      default:
+        Get.snackbar(
+          'Export unavailable',
+          'Exporting as $format is coming soon.',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+    }
+  }
+
+  Future<void> exportContentAsPdf() async {
+    final content = generatedContent.value;
+    if (content == null || isExportingPdf.value) {
+      if (content == null) {
+        Get.snackbar(
+          'No content',
+          'Generate content before exporting.',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      }
+      return;
+    }
+
+    try {
+      isExportingPdf.value = true;
+      final pdf = await _pdfExporter.build(content);
+      await Printing.sharePdf(bytes: pdf.bytes, filename: pdf.filename);
+      _markContentExported('pdf');
+    } catch (error, stackTrace) {
+      debugPrint('PDF export failed: $error\n$stackTrace');
+      Get.snackbar(
+        'Export failed',
+        'Unable to export PDF. Please try again.',
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 4),
+      );
+    } finally {
+      isExportingPdf.value = false;
+    }
+  }
+
+  void _markContentExported(String destination) {
+    final content = generatedContent.value;
+    if (content == null) return;
+    if (content.exportedTo.contains(destination)) return;
+
+    generatedContent.value = content.copyWith(
+      exportedTo: [...content.exportedTo, destination],
+      updatedAt: DateTime.now(),
+    );
   }
 
   /// Reset form fields
   void resetForm() {
+    _clearFormControllers();
+    errorMessage.value = '';
+    _maybeApplyTestSeed();
+  }
+
+  /// Dev-only helper to cycle forward through curated sample inputs.
+  void loadNextSeed() {
+    final seeder = _testSeeder;
+    if (seeder == null) return;
+    _applySeed(seeder.nextSeed());
+  }
+
+  /// Dev-only helper to cycle backward through curated sample inputs.
+  void loadPreviousSeed() {
+    final seeder = _testSeeder;
+    if (seeder == null) return;
+    _applySeed(seeder.previousSeed());
+  }
+
+  void _clearFormControllers() {
     blogTitleController.clear();
     blogAudienceController.clear();
     blogKeyPointsController.clear();
     blogKeywordsController.clear();
     socialTopicController.clear();
+    _enforceSocialIncludeDefaults();
     emailSubjectController.clear();
     emailAudienceController.clear();
     emailMessageController.clear();
     emailCallToActionController.clear();
     videoTopicController.clear();
     videoAudienceController.clear();
-    errorMessage.value = '';
+  }
+
+  void _maybeApplyTestSeed({bool initial = false}) {
+    final seeder = _testSeeder;
+    if (seeder == null) return;
+    final seed = initial ? seeder.initialSeed() : seeder.nextSeed();
+    _applySeed(seed);
+  }
+
+  void _applySeed(ContentGenerationTestData seed) {
+    // Blog form fields
+    blogTitleController.text = seed.blog.title;
+    blogWordCount.value = _normalizeWordCount(seed.blog.wordCountLabel);
+    blogTone.value = seed.blog.tone;
+    blogWritingStyle.value = seed.blog.writingStyle;
+    blogAudienceController.text = seed.blog.targetAudience ?? '';
+    blogKeyPointsController.text = seed.blog.keyPoints.join('\n');
+    blogKeywordsController.text = seed.blog.seoKeywords.join(', ');
+    blogIncludeExamples.value = seed.blog.includeExamples;
+    blogAutoFactCheck.value = seed.blog.autoFactCheck;
+    blogIncludeVisuals.value = seed.blog.includeVisuals;
+
+    // Social form fields
+    socialPlatform.value = seed.social.platform;
+    socialTopicController.text = seed.social.topic;
+    socialTone.value = seed.social.tone;
+
+    // Email form fields
+    emailType.value = seed.email.type;
+    emailTone.value = seed.email.tone;
+    emailSubjectController.text = seed.email.subject;
+    emailAudienceController.text = seed.email.audience ?? '';
+    emailMessageController.text = seed.email.message;
+    emailCallToActionController.text = seed.email.callToAction ?? '';
+
+    // Video form placeholders (legacy UI)
+    videoTopicController.text = seed.video.topic;
+    videoPlatform.value = seed.video.platform;
+    videoDuration.value = seed.video.duration;
+    videoTone.value = seed.video.tone;
+    videoAudienceController.text = seed.video.audience ?? '';
+
+    _enforceSocialIncludeDefaults();
+  }
+
+  void _enforceSocialIncludeDefaults() {
+    socialIncludeHashtags.value = true;
+    socialIncludeEmoji.value = true;
+    socialIncludeCallToAction.value = true;
+  }
+
+  String _normalizeWordCount(String raw) {
+    if (_allowedWordCounts.contains(raw)) {
+      return raw;
+    }
+    final numeric = int.tryParse(raw.replaceAll(RegExp(r'[^0-9]'), ''));
+    if (numeric == null) {
+      return _allowedWordCounts.first;
+    }
+    String closest = _allowedWordCounts.first;
+    var smallestDelta = (numeric - int.parse(closest)).abs();
+    for (final option in _allowedWordCounts.skip(1)) {
+      final optionValue = int.parse(option);
+      final delta = (numeric - optionValue).abs();
+      if (delta < smallestDelta) {
+        smallestDelta = delta;
+        closest = option;
+      }
+    }
+    return closest;
   }
 }

@@ -9,10 +9,8 @@ import '../../../shared/widgets/custom_text_field.dart';
 import '../controllers/image_generation_controller.dart';
 import 'aspect_ratio_selector.dart';
 import 'batch_generation_modal.dart';
-import 'batch_results_gallery.dart';
 import 'image_loading_widget.dart';
 import 'image_quota_display.dart';
-import 'image_result_display.dart';
 import 'style_selector.dart';
 
 /// Image Generation Form
@@ -127,7 +125,7 @@ class ImageGenerationForm extends StatelessWidget {
         // Batch generation link
         Center(
           child: TextButton.icon(
-            onPressed: () => BatchGenerationModal.show(),
+            onPressed: () => BatchGenerationModal.show(context),
             icon: const Icon(Icons.photo_library, size: 20),
             label: const BodyText(
               'Need multiple images? Try Batch Generate →',
@@ -137,14 +135,10 @@ class ImageGenerationForm extends StatelessWidget {
         ),
         const Gap(24),
 
-        // Loading widget (shown during generation)
+        // Loading widget (shown during generation) - stays in constrained width
         const ImageLoadingWidget(),
 
-        // Result display (shown after generation)
-        const ImageResultDisplay(),
-
-        // Batch results (shown after batch generation)
-        const BatchResultsGallery(),
+        // Results break out to full width below
       ],
     );
   }

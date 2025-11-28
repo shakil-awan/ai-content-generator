@@ -77,8 +77,16 @@ class SocialMediaForm extends GetView<ContentGenerationController> {
                 ),
                 DropdownMenuItem(value: 'Casual', child: Text('Casual')),
                 DropdownMenuItem(value: 'Friendly', child: Text('Friendly')),
-                DropdownMenuItem(value: 'Exciting', child: Text('Exciting')),
+                DropdownMenuItem(value: 'Formal', child: Text('Formal')),
                 DropdownMenuItem(value: 'Humorous', child: Text('Humorous')),
+                DropdownMenuItem(
+                  value: 'Inspirational',
+                  child: Text('Inspirational'),
+                ),
+                DropdownMenuItem(
+                  value: 'Informative',
+                  child: Text('Informative'),
+                ),
               ],
               onChanged: (value) {
                 if (value != null) controller.socialTone.value = value;
@@ -130,7 +138,7 @@ class SocialMediaForm extends GetView<ContentGenerationController> {
           () => PrimaryButton(
             text: 'Generate Post 🚀',
             onPressed: controller.canGenerateSocial
-                ? () => controller.generateSocialPost()
+                ? () => controller.generateSocialPost(context)
                 : null,
             isLoading: controller.isGenerating.value,
             width: double.infinity,

@@ -8,15 +8,16 @@ pydantic-settings==2.6.1
 firebase-admin==6.2.0
 
 # OpenAI & LLMs
-# PRIMARY: Google Gemini 2.0 Flash (see backend/AI_MODELS_CONFIG.md)
-google-generativeai==0.8.3  # Updated for Gemini 2.0 Flash + caching support
-openai==1.54.5  # FALLBACK: GPT-4o-mini
+# PRIMARY: Google Gemini 2.5 Flash (see backend/AI_MODELS_CONFIG.md)
+google-generativeai==0.8.3  # OLD SDK - kept for backward compatibility during migration
+google-genai==1.52.0  # NEW SDK with Pydantic support for structured outputs
+openai==2.8.1  # FALLBACK: GPT-4o-mini (upgraded for httpx 0.28+ compatibility)
 anthropic==0.7.0  # Future use
 replicate==0.34.1  # For Flux Schnell image generation
 
 # Fact-Checking APIs
 requests==2.31.0
-httpx==0.25.1
+httpx==0.28.1  # Upgraded for google-genai compatibility
 
 # Payments
 stripe==7.4.0

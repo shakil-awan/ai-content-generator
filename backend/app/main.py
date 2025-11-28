@@ -56,9 +56,13 @@ app = FastAPI(
 )
 
 # CORS Configuration
+# In production, this will be restricted to specific origins from settings.CORS_ORIGINS
+cors_origins = settings.CORS_ORIGINS if settings.ENVIRONMENT == "production" else ["*"]
+logger.info(f"CORS enabled for origins: {cors_origins}")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for development
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -79,12 +83,20 @@ async def app_exception_handler(request: Request, exc: AppException):
             "error_code": exc.error_code,
             "status_code": exc.status_code,
             "details": exc.details,
-            "path": request.url.path
+            "path": request.url.path,
+            "method": request.method
         }
     )
+    
+    # Return frontend-compatible error format
     return JSONResponse(
         status_code=exc.status_code,
-        content=exc.to_dict()
+        content={
+            "error": exc.error_code,
+            "message": exc.message,
+            "errorCode": exc.error_code,  # Also include camelCase for frontend
+            **exc.details
+        }
     )
 
 
@@ -151,14 +163,19 @@ async def root():
     }
 
 @app.get("/health")
+@app.get("/api/v1/health")
 async def health_check():
-    """Detailed health check endpoint"""
+    """Detailed health check endpoint - available at both root and /api/v1/health"""
     return {
         "status": "healthy",
         "environment": settings.ENVIRONMENT,
+        "version": "1.0.0",
         "database": {
             "type": "firebase_firestore",
             "configured": bool(settings.FIREBASE_PROJECT_ID)
+        },
+        "cache": {
+            "redis": "connected" if redis_client.client else "firestore_fallback"
         },
         "ai_services": {
             "openai": "configured" if settings.OPENAI_API_KEY else "missing",
@@ -196,8 +213,13 @@ from app.api import billing
 app.include_router(billing.router)
 
 # Milestone 3: Image Generation (Flux Schnell + DALL-E 3)
-from app.api import images
-app.include_router(images.router)
+# Skip in Python 3.14 due to replicate library pydantic v1 compatibility issues
+# Re-enable once replicate library is updated to support Python 3.14
+try:
+    from app.api import images
+    app.include_router(images.router)
+except Exception as e:
+    logger.warning(f"Image generation disabled due to compatibility issue: {e}")
 
 # Milestone 4: Analytics & Cost Tracking
 from app.api import analytics

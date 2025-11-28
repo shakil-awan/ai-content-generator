@@ -20,6 +20,7 @@ class CustomTextField extends StatelessWidget {
   final ValueChanged<String>? onChanged;
   final VoidCallback? onTap;
   final bool readOnly;
+  final TextDirection? textDirection;
 
   const CustomTextField({
     super.key,
@@ -37,6 +38,7 @@ class CustomTextField extends StatelessWidget {
     this.onChanged,
     this.onTap,
     this.readOnly = false,
+    this.textDirection,
   });
 
   @override
@@ -57,6 +59,7 @@ class CustomTextField extends StatelessWidget {
       readOnly: readOnly,
       onChanged: onChanged,
       onTap: onTap,
+      textDirection: textDirection,
       style: TextStyle(
         fontSize: FontSizes.bodyRegular,
         color: AppTheme.textPrimary, // TODO: Use theme-aware color

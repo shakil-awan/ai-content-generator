@@ -51,9 +51,14 @@ class TrustBar extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        BodyText('Join 5,000+ content creators', color: AppTheme.textSecondary),
-        _buildLogos(false),
-        _buildRating(),
+        const Flexible(
+          child: BodyText(
+            'Join 5,000+ content creators',
+            color: AppTheme.textSecondary,
+          ),
+        ),
+        Flexible(flex: 2, child: _buildLogos(false)),
+        Flexible(child: _buildRating()),
       ],
     );
   }

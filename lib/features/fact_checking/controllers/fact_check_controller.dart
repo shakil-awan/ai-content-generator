@@ -44,25 +44,26 @@ class FactCheckController extends GetxController {
   /// Load fact-check settings from storage/API
   Future<void> loadSettings() async {
     try {
-      // TODO: Load from Firebase or local storage
-      // For now, use default values
-      isFactCheckEnabled.value = false;
-      confidenceThreshold.value = 70;
+      final settings = await _factCheckService.loadSettings();
+      isFactCheckEnabled.value = settings['autoFactCheck'] ?? false;
+      confidenceThreshold.value = settings['confidenceThreshold'] ?? 70;
     } catch (e) {
       log('Error loading fact-check settings: $e', name: 'FactCheckController');
+      // Use defaults on error
+      isFactCheckEnabled.value = false;
+      confidenceThreshold.value = 70;
     }
   }
 
   /// Save fact-check settings to storage/API
   Future<void> saveSettings() async {
     try {
-      // TODO: Save to Firebase or API
-      // Example: await _factCheckService.saveSettings(
-      //   autoFactCheck: isFactCheckEnabled.value,
-      //   confidenceThreshold: confidenceThreshold.value,
-      // );
+      await _factCheckService.saveSettings(
+        autoFactCheck: isFactCheckEnabled.value,
+        confidenceThreshold: confidenceThreshold.value,
+      );
       log(
-        'Saving settings: enabled=${isFactCheckEnabled.value}, threshold=${confidenceThreshold.value}',
+        'Settings saved: enabled=${isFactCheckEnabled.value}, threshold=${confidenceThreshold.value}',
         name: 'FactCheckController',
       );
     } catch (e) {
@@ -74,16 +75,14 @@ class FactCheckController extends GetxController {
   /// Check quota usage from API
   Future<void> checkQuota() async {
     try {
-      // TODO: Implement API call to get quota
-      // final quota = await _factCheckService.getQuota();
-      // quotaUsed.value = quota['used'];
-      // quotaLimit.value = quota['limit'];
-
-      // Mock data for now
-      quotaUsed.value = 7;
-      quotaLimit.value = 10;
+      final quota = await _factCheckService.getQuota();
+      quotaUsed.value = quota['used'];
+      quotaLimit.value = quota['limit'];
     } catch (e) {
       log('Error checking quota: $e', name: 'FactCheckController');
+      // Set defaults on error
+      quotaUsed.value = 0;
+      quotaLimit.value = 10;
     }
   }
 
@@ -134,7 +133,7 @@ class FactCheckController extends GetxController {
     }
   }
 
-  /// Simulate progressive verification (for UI demonstration)
+  /// Verify content with progress updates
   Future<void> verifyContentWithProgress(String content) async {
     try {
       isLoading.value = true;
@@ -145,18 +144,17 @@ class FactCheckController extends GetxController {
         throw Exception('Quota limit reached');
       }
 
-      // Simulate extracting claims first
-      totalClaims.value = 5; // Mock: assume 5 claims found
+      // Start verification (backend does the actual work)
       currentClaim.value = 0;
+      totalClaims.value = 0;
 
-      // Simulate progressive verification
-      for (int i = 0; i < totalClaims.value; i++) {
-        await Future.delayed(const Duration(milliseconds: 500));
-        currentClaim.value = i + 1;
-      }
-
-      // Get final results
+      // Get results from backend
       final results = await _factCheckService.verifyContent(content);
+
+      // Update progress
+      totalClaims.value = results.totalClaims;
+      currentClaim.value = results.totalClaims;
+
       factCheckResults.value = results;
 
       // Update quota

@@ -38,7 +38,7 @@ class DisplayText extends StatelessWidget {
     //     ? AppTheme.textPrimaryDark
     //     : AppTheme.textPrimary;
 
-    return SelectableText(
+    return Text(
       text,
       style: TextStyle(
         fontSize: FontSizes.displayLarge,
@@ -47,6 +47,7 @@ class DisplayText extends StatelessWidget {
       ),
       textAlign: textAlign,
       maxLines: maxLines,
+      overflow: overflow,
     );
   }
 }
@@ -62,7 +63,7 @@ class H1 extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SelectableText(
+    return Text(
       text,
       style: TextStyle(
         fontSize: FontSizes.h1,
@@ -86,7 +87,7 @@ class H2 extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SelectableText(
+    return Text(
       text,
       style: TextStyle(
         fontSize: FontSizes.h2,
@@ -110,7 +111,7 @@ class H3 extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SelectableText(
+    return Text(
       text,
       style: TextStyle(
         fontSize: FontSizes.h3,
@@ -142,7 +143,7 @@ class BodyText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SelectableText(
+    return Text(
       text,
       style: TextStyle(
         fontSize: FontSizes.bodyRegular,
@@ -172,7 +173,7 @@ class BodyTextLarge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SelectableText(
+    return Text(
       text,
       style: TextStyle(
         fontSize: FontSizes.bodyLarge,
@@ -201,7 +202,7 @@ class BodyTextSmall extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SelectableText(
+    return Text(
       text,
       style: TextStyle(
         fontSize: FontSizes.bodySmall,
@@ -230,7 +231,7 @@ class CaptionText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SelectableText(
+    return Text(
       text,
       style: TextStyle(
         fontSize: FontSizes.captionRegular,

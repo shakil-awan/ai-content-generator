@@ -15,19 +15,33 @@ import 'style_selector.dart';
 class BatchGenerationModal extends StatelessWidget {
   const BatchGenerationModal({super.key});
 
-  static void show() {
-    Get.dialog(const BatchGenerationModal(), barrierDismissible: false);
+  static void show(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const BatchGenerationModal(),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final controller = Get.find<ImageGenerationController>();
+    final screenSize = MediaQuery.of(context).size;
+    final dialogWidth = screenSize.width > 1200
+        ? screenSize.width * 0.6
+        : screenSize.width > 768
+        ? screenSize.width * 0.75
+        : screenSize.width * 0.9;
+    final dialogHeight = screenSize.height * 0.85;
 
     return Dialog(
       backgroundColor: AppTheme.bgPrimary,
       shape: RoundedRectangleBorder(borderRadius: AppTheme.borderRadiusLG),
       child: Container(
-        constraints: const BoxConstraints(maxWidth: 800, maxHeight: 700),
+        constraints: BoxConstraints(
+          maxWidth: dialogWidth,
+          maxHeight: dialogHeight,
+        ),
         padding: const EdgeInsets.all(24),
         child: Obx(() {
           final isGenerating = controller.isBatchGenerating.value;
@@ -42,7 +56,7 @@ class BatchGenerationModal extends StatelessWidget {
                   const H2('Batch Image Generation 🚀'),
                   if (!isGenerating)
                     IconButton(
-                      onPressed: () => Get.back(),
+                      onPressed: () => Navigator.of(context).pop(),
                       icon: const Icon(Icons.close),
                       color: AppTheme.textSecondary,
                     ),
@@ -68,7 +82,7 @@ class BatchGenerationModal extends StatelessWidget {
                   children: [
                     SecondaryButton(
                       text: 'Cancel',
-                      onPressed: () => Get.back(),
+                      onPressed: () => Navigator.of(context).pop(),
                     ),
                     const Gap(12),
                     Obx(() {
@@ -229,12 +243,18 @@ class _PromptInput extends StatelessWidget {
               final textController = TextEditingController(
                 text: controller.batchPrompts[index],
               );
+              // Set cursor to end of text when rebuilding
+              textController.selection = TextSelection.fromPosition(
+                TextPosition(offset: textController.text.length),
+              );
               return CustomTextField(
                 controller: textController,
                 label: 'Prompt ${index + 1}',
+                hint: 'e.g., Modern office workspace with plants...',
                 onChanged: (value) =>
                     controller.updateBatchPrompt(index, value),
-                maxLines: 2,
+                maxLines: 3,
+                textDirection: TextDirection.ltr,
               );
             }),
           ),
@@ -262,10 +282,12 @@ class _BatchProgressView extends StatelessWidget {
       final currentIndex = controller.currentBatchIndex.value;
       final total = controller.batchPrompts.where((p) => p.length >= 10).length;
 
+      final isComplete = progress >= 1.0;
+
       return Column(
         children: [
           // Overall progress
-          const H3('Generating images...'),
+          H3(isComplete ? '✅ Generation Complete!' : 'Generating images...'),
           const Gap(16),
           ClipRRect(
             borderRadius: AppTheme.borderRadiusMD,
@@ -273,17 +295,24 @@ class _BatchProgressView extends StatelessWidget {
               value: progress,
               minHeight: 12,
               backgroundColor: AppTheme.border,
-              valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primary),
+              valueColor: AlwaysStoppedAnimation<Color>(
+                isComplete ? AppTheme.success : AppTheme.primary,
+              ),
             ),
           ),
           const Gap(12),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              BodyText('Image ${currentIndex + 1} of $total'),
+              BodyText(
+                isComplete
+                    ? 'All images generated!'
+                    : 'Image ${results.length + 1} of $total',
+              ),
               BodyText(
                 '${(progress * 100).toInt()}%',
                 fontWeight: FontWeight.w600,
+                color: isComplete ? AppTheme.success : null,
               ),
             ],
           ),
@@ -309,7 +338,7 @@ class _BatchProgressView extends StatelessWidget {
           TextButton(
             onPressed: () {
               controller.isBatchGenerating.value = false;
-              Get.back();
+              Navigator.of(context).pop();
             },
             child: const BodyText('Cancel', color: AppTheme.error),
           ),
@@ -319,9 +348,18 @@ class _BatchProgressView extends StatelessWidget {
   }
 
   String _getImageStatus(int index, int currentIndex, List results) {
-    if (index < results.length) return 'completed';
+    // If we have a result for this index, it's completed
+    if (index < results.length && results[index] != null) {
+      return 'completed';
+    }
+    // If progress is 100% and we're past this index, check if it failed
+    if (index < currentIndex) {
+      // Check if this index has a result
+      return index < results.length ? 'completed' : 'failed';
+    }
+    // Currently generating
     if (index == currentIndex) return 'generating';
-    if (index < currentIndex) return 'failed';
+    // Not started yet
     return 'queued';
   }
 }

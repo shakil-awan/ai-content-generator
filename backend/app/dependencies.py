@@ -13,6 +13,7 @@ from app.services.auth_service import AuthService
 from app.services.openai_service import OpenAIService
 from app.services.humanization_service import HumanizationService
 from app.services.stripe_service import StripeService
+from app.services.video_generation_service import VideoGenerationService
 
 # Singleton instances
 _firebase_service: Optional[FirebaseService] = None
@@ -20,6 +21,7 @@ _auth_service: Optional[AuthService] = None
 _openai_service: Optional[OpenAIService] = None
 _humanization_service: Optional[HumanizationService] = None
 _stripe_service: Optional[StripeService] = None
+_video_service: Optional[VideoGenerationService] = None
 
 def get_firebase_service() -> FirebaseService:
     """
@@ -86,6 +88,19 @@ def get_stripe_service() -> StripeService:
         _stripe_service = StripeService()
     return _stripe_service
 
+def get_video_generation_service() -> VideoGenerationService:
+    """
+    Get or create Video Generation service instance (singleton pattern).
+    Handles video generation from scripts using Replicate API.
+    
+    Returns:
+        VideoGenerationService: Initialized video generation service
+    """
+    global _video_service
+    if _video_service is None:
+        _video_service = VideoGenerationService()
+    return _video_service
+
 # HTTP Bearer token security
 security = HTTPBearer()
 
@@ -99,7 +114,11 @@ async def get_current_user(
     
     Returns complete user document with REAL stats (not mock)
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    
     token = credentials.credentials
+    logger.info(f"🔐 Authenticating request with token: {token[:20]}...")
     
     try:
         payload = jwt.decode(
@@ -108,31 +127,49 @@ async def get_current_user(
             algorithms=[settings.JWT_ALGORITHM]
         )
         user_id = payload.get("user_id")
+        logger.info(f"📝 JWT decoded successfully. user_id from token: {user_id}")
+        
         if not user_id:
+            logger.error("❌ No user_id found in JWT payload")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid authentication credentials"
             )
         
         # Fetch full user from database (includes REAL stats)
+        logger.info(f"📥 Fetching user from database: {user_id}")
         user = await firebase_service.get_user(user_id)
         if not user:
+            logger.error(f"❌ User not found in database: {user_id}")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="User not found"
             )
         
+        logger.info(f"✅ User authenticated: uid={user.get('uid')}, email={user.get('email')}")
+        
         return user
     
-    except jwt.ExpiredSignatureError:
+    except jwt.ExpiredSignatureError as e:
+        logger.error(f"❌ JWT token expired: {e}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token has expired"
         )
-    except jwt.InvalidTokenError:
+    except jwt.InvalidTokenError as e:
+        logger.error(f"❌ Invalid JWT token: {e}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token"
+        )
+    except HTTPException:
+        # Re-raise HTTPExceptions as-is
+        raise
+    except Exception as e:
+        logger.error(f"❌ Unexpected authentication error: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Authentication error: {str(e)}"
         )
 
 async def get_optional_user(

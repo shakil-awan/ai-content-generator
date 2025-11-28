@@ -35,6 +35,9 @@ from app.schemas.generation import (
     ProductDescriptionRequest,
     AdCopyRequest,
     VideoScriptRequest,
+    VideoFromScriptRequest,
+    VideoGenerationJobResponse,
+    VideoStatusResponse,
     GenerationResponse,
     ContentType,
     SocialPlatform,
@@ -43,10 +46,46 @@ from app.schemas.generation import (
 from app.dependencies import get_current_user, get_firebase_service, get_openai_service
 from app.services.firebase_service import FirebaseService
 from app.services.openai_service import OpenAIService
+from app.services.video_generation_service import get_video_generation_service, VideoGenerationService
 from app.utils.prompt_enhancer import improve_prompt, ContentType as PromptContentType
 
 router = APIRouter(prefix="/api/v1/generate", tags=["Content Generation"])
 logger = logging.getLogger(__name__)
+
+# ==================== HELPER FUNCTIONS ====================
+
+def normalize_quality_score(quality_score_data) -> Dict[str, float]:
+    """
+    Normalize quality_score from service layer (can be dict, int, or None)
+    Returns a dict with score fields in 0-1 range (will be multiplied by 10 later)
+    """
+    if isinstance(quality_score_data, dict):
+        return quality_score_data
+    elif isinstance(quality_score_data, (int, float)):
+        # Convert single score to dict format in 0-1 range
+        # If score is 0-100, divide by 100. If 0-10, divide by 10. If 0-1, use as-is.
+        if quality_score_data > 10:
+            score = quality_score_data / 100.0
+        elif quality_score_data > 1:
+            score = quality_score_data / 10.0
+        else:
+            score = quality_score_data
+        return {
+            'readability': score,
+            'completeness': score,
+            'seo': score,
+            'grammar': score,
+            'overall': score
+        }
+    else:
+        # None or other - return zeros
+        return {
+            'readability': 0,
+            'completeness': 0,
+            'seo': 0,
+            'grammar': 0,
+            'overall': 0
+        }
 
 # ==================== MILESTONE 2.1: BLOG POST GENERATION ====================
 
@@ -167,7 +206,8 @@ async def generate_blog_post(
             user_id=user_id,
             target_audience=request.target_audience,  # Phase 2
             writing_style=request.writing_style,  # Phase 2
-            include_examples=request.include_examples  # Phase 2
+            include_examples=request.include_examples,  # Phase 2
+            enable_fact_check=request.enable_fact_check  # NEW: Tell AI to include more facts
         )
         
         # Extract AI output and timing
@@ -175,7 +215,7 @@ async def generate_blog_post(
         tokens_used = ai_result['tokensUsed']
         model_used = ai_result['model']
         generation_time = ai_result.get('generation_time', 0.0)  # Actual time from AI service
-        quality_score_data = ai_result.get('quality_score', {})  # Real quality score from AI service
+        quality_score_data = normalize_quality_score(ai_result.get('quality_score'))  # Normalize to dict
         
         # Use REAL quality metrics from quality_scorer (not mock data!)
         quality_metrics = {
@@ -238,6 +278,19 @@ async def generate_blog_post(
             except Exception as e:
                 logger.error(f"Fact-checking failed (skipping): {e}")
         
+        # Format blog content from structured schema (introduction + sections + conclusion)
+        formatted_content = blog_output.get('introduction', '')
+        
+        # Add sections with headings
+        for section in blog_output.get('sections', []):
+            formatted_content += f"\n\n## {section.get('heading', '')}\n\n{section.get('content', '')}"
+        
+        # Add conclusion
+        formatted_content += f"\n\n## Conclusion\n\n{blog_output.get('conclusion', '')}"
+        
+        # Extract headings from sections
+        headings = [section.get('heading', '') for section in blog_output.get('sections', []) if section.get('heading')]
+        
         # Prepare generation document for Firestore
         generation_data = {
             'userId': user_id,
@@ -252,10 +305,13 @@ async def generate_blog_post(
             },
             'output': {
                 'title': blog_output.get('title', ''),
-                'content': blog_output.get('content', ''),
+                'content': formatted_content,
                 'metaDescription': blog_output.get('metaDescription', ''),
-                'headings': blog_output.get('headings', []),
-                'wordCount': blog_output.get('wordCount', target_word_count)
+                'headings': headings,
+                'wordCount': blog_output.get('wordCount', target_word_count),
+                'introduction': blog_output.get('introduction', ''),
+                'sections': blog_output.get('sections', []),
+                'conclusion': blog_output.get('conclusion', '')
             },
             'settings': {
                 'tone': request.tone,
@@ -467,12 +523,38 @@ async def generate_social_media(
             target_audience="general",
             tone=request.tone,
             include_hashtags=request.include_hashtags,
+            include_emoji=request.include_emoji,
+            include_cta=request.include_call_to_action,
             user_tier=user_plan,
             user_id=user_id
         )
         
         social_output = ai_result['output']
-        quality_score_data = ai_result.get('quality_score', {})
+        quality_score_data = normalize_quality_score(ai_result.get('quality_score'))  # Normalize to dict
+        
+        # Format social media content for display (combine all captions)
+        formatted_content = ""
+        captions = social_output.get('captions', [])
+        
+        for i, caption in enumerate(captions, 1):
+            caption_text = caption.get('text', '')
+            caption_length = caption.get('length', len(caption_text))
+            formatted_content += f"**Caption {i}** ({caption_length} characters):\n{caption_text}\n\n"
+        
+        # Add hashtags section
+        hashtags = social_output.get('hashtags', [])
+        if hashtags:
+            formatted_content += f"\n**Suggested Hashtags:**\n{' '.join(hashtags)}\n\n"
+        
+        # Add emoji suggestions
+        emojis = social_output.get('emojiSuggestions', [])
+        if emojis:
+            formatted_content += f"**Emoji Suggestions:**\n{' '.join(emojis)}\n\n"
+        
+        # Add engagement tips
+        tips = social_output.get('engagementTips', '')
+        if tips:
+            formatted_content += f"**Engagement Tips:**\n{tips}\n"
         
         # Use REAL quality metrics from quality_scorer
         quality_metrics = {
@@ -494,10 +576,17 @@ async def generate_social_media(
                 'topic': request.topic,
                 'tone': request.tone,
                 'includeHashtags': request.include_hashtags,
-                'includeEmojis': request.include_emojis,
+                'includeEmoji': request.include_emoji,
+                'includeCallToAction': request.include_call_to_action,
                 'characterLimit': request.character_limit
             },
-            'output': social_output,
+            'output': {
+                'captions': captions,
+                'hashtags': hashtags,
+                'emojiSuggestions': emojis,
+                'engagementTips': tips,
+                'formatted_content': formatted_content
+            },
             'settings': {
                 'tone': request.tone,
                 'length': 'short',
@@ -538,8 +627,8 @@ async def generate_social_media(
             id=generation_id,
             user_id=user_id,
             content_type=ContentType.SOCIAL_MEDIA,
-            content=str(generation_data['output']),
-            title=request.platform + ' post',
+            content=formatted_content,  # Use formatted content, not str()
+            title=f"{request.platform.title()} Post",
             settings=generation_data['settings'],
             quality_metrics=quality_metrics,
             fact_check_results=generation_data['factCheckResults'],
@@ -579,6 +668,13 @@ async def generate_email_campaign(
 ) -> GenerationResponse:
     """Generate email campaign with automatic stats tracking"""
     try:
+        # Log received request
+        logger.info(f"Email generation request received")
+        logger.info(f"Campaign type: {request.campaign_type}")
+        logger.info(f"Subject line: {request.subject_line}")
+        logger.info(f"Product/Service: {request.product_service}")
+        logger.info(f"Tone: {request.tone}")
+        
         user_id = current_user['uid']
         user_plan = current_user.get('subscriptionPlan', 'free')
         usage_this_month = current_user.get('usageThisMonth', {})
@@ -660,7 +756,7 @@ async def generate_email_campaign(
             email_content = str(email_output)
             output_dict = {'content': email_content}
         
-        quality_score_data = ai_result.get('quality_score', {})
+        quality_score_data = normalize_quality_score(ai_result.get('quality_score'))  # Normalize to dict
         
         # Use REAL quality metrics from quality_scorer
         quality_metrics = {
@@ -1200,6 +1296,14 @@ async def generate_video_script(
             user_id=user_id
         )
         
+        logger.info(f"=== AI RESULT STRUCTURE ===")
+        logger.info(f"AI result keys: {list(ai_result.keys())}")
+        logger.info(f"Output type: {type(ai_result.get('output'))}")
+        if isinstance(ai_result.get('output'), dict):
+            logger.info(f"Output keys: {list(ai_result['output'].keys())}")
+        logger.info(f"Tokens used: {ai_result.get('tokensUsed')}")
+        logger.info(f"Model: {ai_result.get('model')}")
+        
         # Handle dict output - extract all text content and flatten nested structures
         def flatten_to_text(value, bullet_items=False):
             """Recursively flatten any data structure to readable text"""
@@ -1245,7 +1349,12 @@ async def generate_video_script(
             video_title = request.topic
             output_dict = {'script': video_content, 'title': video_title}
         
-        quality_score_data = ai_result.get('quality_score', {})
+        logger.info(f"=== OUTPUT_DICT STRUCTURE ===")
+        logger.info(f"Output dict keys: {list(output_dict.keys()) if isinstance(output_dict, dict) else 'Not a dict'}")
+        logger.info(f"Video content length: {len(video_content)} chars")
+        logger.info(f"Video title: {video_title}")
+        
+        quality_score_data = normalize_quality_score(ai_result.get('quality_score'))  # Normalize to dict
         
         # Use REAL quality metrics from quality_scorer
         quality_metrics = {
@@ -1309,7 +1418,8 @@ async def generate_video_script(
         
         logger.info(f"Video script generation complete for user {user_id}")
         
-        return GenerationResponse(
+        # Create response with output field for frontend compatibility
+        response = GenerationResponse(
             id=generation_id,
             user_id=user_id,
             content_type=ContentType.VIDEO_SCRIPT,
@@ -1320,11 +1430,18 @@ async def generate_video_script(
             humanization=generation_data['humanization'],
             ai_suggestions=ai_suggestions,
             ai_quality_metrics=ai_quality_data,
+            output=output_dict,  # Structured output for frontend parsing
             generation_time=generation_data['metadata']['processingTime'],
             model_used=generation_data['metadata']['modelUsed'],
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow()
         )
+        
+        logger.info(f"=== FINAL RESPONSE ===")
+        logger.info(f"Response has output field: {response.output is not None}")
+        logger.info(f"Output field keys: {list(response.output.keys()) if response.output else 'None'}")
+        
+        return response
         
     except HTTPException:
         raise
@@ -1333,6 +1450,337 @@ async def generate_video_script(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={"error": "generation_failed", "message": str(e)}
+        )
+
+
+# ==================== MILESTONE 2.7: VIDEO GENERATION FROM SCRIPT ====================
+
+@router.post(
+    "/video-from-script",
+    response_model=VideoGenerationJobResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Generate video from script",
+    description="""
+    Convert a generated script into an actual video using AI video generation.
+    
+    **Process:**
+    1. Fetch script from Firestore (by generation_id)
+    2. Submit to Replicate API for video generation
+    3. Poll for completion (30-180 seconds depending on duration)
+    4. Upload video to Firebase Storage
+    5. Return video URL and metadata
+    
+    **Cost:**
+    - ~$0.10-0.30 per video (depending on duration)
+    - 93-97% cheaper than competitors ($6-15/video)
+    
+    **Processing Time:**
+    - 30s video: ~60 seconds
+    - 60s video: ~90 seconds
+    - 3min video: ~180 seconds
+    
+    **Returns:**
+    - Video generation job with status and progress
+    - Video URL when complete
+    """
+)
+async def generate_video_from_script(
+    request: VideoFromScriptRequest,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    firebase_service: FirebaseService = Depends(get_firebase_service),
+    video_service: VideoGenerationService = Depends(get_video_generation_service)
+) -> VideoGenerationJobResponse:
+    """
+    Generate video from an existing script
+    
+    Flow:
+    1. Fetch script generation from Firestore
+    2. Extract script content, duration, platform
+    3. Call Replicate API to generate video
+    4. Poll for completion (async)
+    5. Upload to Firebase Storage
+    6. Save video metadata to Firestore
+    7. Return video URL
+    """
+    try:
+        # Log the incoming request
+        logger.info(f"📥 Video generation request received")
+        logger.info(f"   Generation ID: {request.generation_id}")
+        logger.info(f"   Video Style: {request.video_style}")
+        logger.info(f"   Voice Style: {request.voice_style}")
+        logger.info(f"   Music Mood: {request.music_mood}")
+        
+        user_id = current_user['uid']
+        user_plan = current_user.get('subscriptionPlan', 'free')
+        user_email = current_user.get('email', 'unknown')
+        
+        logger.info(f"👤 Authenticated user:")
+        logger.info(f"   UID: {user_id}")
+        logger.info(f"   Email: {user_email}")
+        logger.info(f"   Plan: {user_plan}")
+        
+        # TODO: Implement proper video limits (5 videos/month for free tier)
+        # For now, allow unlimited video generation for testing
+        usage_this_month = current_user.get('usageThisMonth', {})
+        videos_used = usage_this_month.get('videos', 0)
+        
+        # Set video limits based on plan
+        if user_plan == 'free':
+            video_limit = 5  # Free: 5 videos/month
+        elif user_plan == 'pro':
+            video_limit = 50  # Pro: 50 videos/month
+        elif user_plan == 'enterprise':
+            video_limit = 999999  # Enterprise: unlimited
+        else:
+            video_limit = 5  # Default to free tier
+        
+        logger.info(f"📊 Usage: {videos_used}/{video_limit} videos used this month")
+        
+        # TEMPORARILY DISABLED: Will enable after testing complete
+        # if videos_used >= video_limit:
+        #     raise HTTPException(
+        #         status_code=status.HTTP_402_PAYMENT_REQUIRED,
+        #         detail={
+        #             "error": "video_limit_reached",
+        #             "message": f"You've reached your monthly video limit of {video_limit}. Upgrade to Pro for more videos.",
+        #             "used": videos_used,
+        #             "limit": video_limit
+        #         }
+        #     )
+        
+        logger.info(f"🎬 Generating video from script for user {user_id}: {request.generation_id}")
+        logger.info(f"📋 Current user info: uid={user_id}, plan={user_plan}")
+        
+        # Fetch original script generation (Firestore .get() is synchronous, not async)
+        try:
+            generation_doc = firebase_service.db.collection('generations').document(request.generation_id).get()
+        except Exception as e:
+            logger.error(f"❌ Database error fetching generation: {e}")
+            from app.exceptions import DatabaseError
+            raise DatabaseError(
+                message=str(e),
+                operation="read",
+                details={"generation_id": request.generation_id}
+            )
+        
+        if not generation_doc.exists:
+            logger.error(f"❌ Generation document not found: {request.generation_id}")
+            from app.exceptions import DocumentNotFoundError
+            raise DocumentNotFoundError(
+                collection="generations",
+                document_id=request.generation_id
+            )
+        
+        generation_data = generation_doc.to_dict()
+        generation_user_id = generation_data.get('userId')
+        
+        logger.info(f"📄 Generation found: userId in doc={generation_user_id}, current user={user_id}")
+        logger.info(f"🔍 Match check: {generation_user_id} == {user_id} = {generation_user_id == user_id}")
+        
+        # Verify ownership
+        if generation_user_id != user_id:
+            logger.error(f"❌ Access denied: Generation belongs to {generation_user_id}, but user is {user_id}")
+            from app.exceptions import AppException
+            raise AppException(
+                message="You don't have permission to generate video from this script",
+                status_code=403,
+                error_code="access_denied",
+                details={
+                    "generation_id": request.generation_id,
+                    "required_user": generation_user_id,
+                    "current_user": user_id
+                }
+            )
+        
+        # Extract script details - parse JSON string to dict
+        output_str = generation_data.get('output', '{}')
+        try:
+            script_output = json.loads(output_str) if isinstance(output_str, str) else output_str
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse output JSON: {output_str[:200]}")
+            from app.exceptions import ValidationError
+            raise ValidationError(
+                field="output",
+                message="Failed to parse script output data - invalid JSON format",
+                value=output_str[:100]
+            )
+        
+        # Extract script content from new VideoScriptOutput structure
+        # Structure: {hook, sections: [{title, content, duration, visualDescription}], ...}
+        sections = script_output.get('sections', [])
+        hook = script_output.get('hook', '')
+        cta = script_output.get('callToAction', '')
+        
+        if not sections:
+            logger.error(f"❌ Script has no sections: {request.generation_id}")
+            from app.exceptions import ValidationError
+            raise ValidationError(
+                field="sections",
+                message="Script sections are empty or invalid - cannot generate video",
+                value=None
+            )
+        
+        # Build comprehensive script content for video generation
+        script_content = f"{hook}\n\n"
+        visual_descriptions = []
+        for i, section in enumerate(sections, 1):
+            script_content += f"{section.get('title', f'Section {i}')}\n{section.get('content', '')}\n\n"
+            if section.get('visualDescription'):
+                visual_descriptions.append(f"Scene {i}: {section['visualDescription']}")
+        
+        script_content += f"\n{cta}"
+        
+        # Get parameters from user input and script output
+        user_input = generation_data.get('userInput', {})
+        duration = user_input.get('duration', 60)
+        platform = user_input.get('platform', 'youtube')
+        
+        # Extract visual descriptions from script sections
+        visual_descriptions = [
+            section.get('visualDescription', 'Professional scene matching the content')
+            for section in sections
+        ]
+        
+        # Use V2 service with enhanced prompts and Veo 3.1
+        from app.services.video_generation_service_v2 import get_video_generation_service_v2
+        video_service_v2 = get_video_generation_service_v2()
+        
+        logger.info(f"🎬 Generating video with {len(visual_descriptions)} scenes")
+        
+        # Generate video using enhanced V2 service
+        video_result = await video_service_v2.generate_video_from_script(
+            script_content=script_content,
+            visual_descriptions=visual_descriptions,
+            duration=duration,
+            platform=platform,
+            video_style=request.video_style,
+            include_captions=request.include_captions,
+            use_fast_model=False,  # Use quality model by default
+            resolution="1080p"
+        )
+        
+        # Get primary video URL (first clip for backward compatibility)
+        primary_video_url = video_result['video_clips'][0]['url'] if video_result['video_clips'] else ""
+        
+        # Save video job to Firestore with all clips
+        video_job_data = {
+            'userId': user_id,
+            'generationId': request.generation_id,
+            'status': video_result['status'],
+            'progress': 100,
+            'videoUrl': primary_video_url,  # Primary video URL for easy access
+            'videoClips': video_result['video_clips'],  # Array of all clip objects
+            'totalDuration': video_result['total_duration'],
+            'numClips': len(video_result['video_clips']),
+            'processingTime': video_result['processing_time'],
+            'cost': video_result['cost'],
+            'errorMessage': None,
+            'metadata': {
+                'platform': platform,
+                'voiceStyle': request.voice_style,
+                'musicMood': request.music_mood,
+                'videoStyle': request.video_style,
+                'includeCaptions': request.include_captions,
+                **video_result['metadata']
+            },
+            'createdAt': datetime.utcnow(),
+            'updatedAt': datetime.utcnow()
+        }
+        
+        # Save to Firestore (Firestore operations are synchronous in Python SDK)
+        video_job_ref = firebase_service.db.collection('video_generations').add(video_job_data)
+        video_job_id = video_job_ref[1].id
+        
+        # Increment video usage counter
+        firebase_service.db.collection('users').document(user_id).update({
+            'usageThisMonth.videos': videos_used + 1
+        })
+        
+        logger.info(f"✅ Video generated successfully: {video_job_id}")
+        logger.info(f"💰 Cost: ${video_result['cost']:.2f}")
+        logger.info(f"🎞️ Generated {len(video_result['video_clips'])} clips")
+        
+        return VideoGenerationJobResponse(
+            id=video_job_id,
+            generation_id=request.generation_id,
+            user_id=user_id,
+            status=video_result['status'],
+            progress=100,
+            video_url=primary_video_url,  # Primary video URL (first clip)
+            duration=video_result['total_duration'],
+            processing_time=video_result['processing_time'],
+            cost=video_result['cost'],
+            error_message=None,
+            metadata=video_job_data['metadata'],
+            created_at=video_job_data['createdAt'],
+            updated_at=video_job_data['updatedAt']
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in video generation from script: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error": "video_generation_failed", "message": str(e)}
+        )
+
+
+@router.get(
+    "/video-status/{video_job_id}",
+    response_model=VideoStatusResponse,
+    summary="Check video generation status",
+    description="Get current status and progress of video generation job"
+)
+async def get_video_status(
+    video_job_id: str,
+    current_user: Dict[str, Any] = Depends(get_current_user),
+    firebase_service: FirebaseService = Depends(get_firebase_service)
+) -> VideoStatusResponse:
+    """Check status of video generation job"""
+    try:
+        user_id = current_user['uid']
+        
+        # Fetch video job from Firestore (synchronous operation)
+        video_doc = firebase_service.db.collection('video_generations').document(video_job_id).get()
+        
+        if not video_doc.exists:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "error": "video_not_found",
+                    "message": f"Video job {video_job_id} not found"
+                }
+            )
+        
+        video_data = video_doc.to_dict()
+        
+        # Verify ownership
+        if video_data.get('userId') != user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error": "access_denied",
+                    "message": "You don't have permission to view this video job"
+                }
+            )
+        
+        return VideoStatusResponse(
+            id=video_job_id,
+            status=video_data.get('status', 'unknown'),
+            progress=video_data.get('progress', 0),
+            video_url=video_data.get('videoUrl'),
+            processing_time=video_data.get('processingTime'),
+            error_message=video_data.get('errorMessage')
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error checking video status: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error": "status_check_failed", "message": str(e)}
         )
 
 

@@ -339,7 +339,7 @@ def _calculate_generation_cost(
     output_millions = estimated_output / 1_000_000
     
     # Calculate based on model
-    if 'gemini-2.0' in model.lower():
+    if 'gemini-2.5' in model.lower() or 'gemini-2.0' in model.lower():
         if cached_prompt:
             # System prompt cached: 90% discount on input
             input_cost = input_millions * settings.GEMINI_2_0_CACHED_COST
@@ -410,7 +410,7 @@ def _generate_cost_insights(
         insights.append(f"💰 Improve cache hit rate to save ~${potential_savings:.2f}/month")
     
     # Model usage insight
-    gemini_cost = costs_by_model.get('gemini-2.0-flash', 0)
+    gemini_cost = costs_by_model.get('gemini-2.5-flash', costs_by_model.get('gemini-2.0-flash', 0))
     openai_cost = costs_by_model.get('gpt-4o-mini', 0)
     
     if openai_cost > gemini_cost:
