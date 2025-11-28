@@ -36,9 +36,9 @@ class Environment {
     // Otherwise, use environment-specific defaults
     switch (current) {
       case 'production':
-        return 'https://ai-content-generator-api.onrender.com'; // Update with your Render URL
+        return 'https://api.flutterstudio.dev'; // Custom domain
       case 'staging':
-        return 'https://ai-content-generator-staging.onrender.com'; // If you have staging
+        return 'https://ai-content-generator-api-zwhe.onrender.com'; // Render URL as fallback
       case 'development':
       default:
         return 'http://127.0.0.1:8000'; // Local development
