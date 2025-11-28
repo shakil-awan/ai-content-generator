@@ -12,7 +12,7 @@ firebase-admin==6.2.0
 google-generativeai==0.8.3  # OLD SDK - kept for backward compatibility during migration
 google-genai==1.52.0  # NEW SDK with Pydantic support for structured outputs
 openai==2.8.1  # FALLBACK: GPT-4o-mini (upgraded for httpx 0.28+ compatibility)
-anthropic==0.7.0  # Future use
+anthropic==0.40.0  # Future use - updated for anyio compatibility
 replicate==0.34.1  # For Flux Schnell image generation
 
 # Fact-Checking APIs
